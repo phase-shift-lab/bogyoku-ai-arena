@@ -138,7 +138,7 @@ a:focus-visible {
 }
 
 .hero-panel h1 {
-  max-width: 14ch;
+  max-width: none;
   margin: 10px 0;
   color: #fff9ec;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
@@ -148,8 +148,9 @@ a:focus-visible {
 }
 
 .hero-panel h1 span {
-  display: inline;
+  display: block;
   color: var(--gold-light);
+  white-space: nowrap;
 }
 
 .hero-panel > p {
@@ -932,7 +933,7 @@ a:focus-visible {
   }
 
   .hero-panel h1 {
-    max-width: 14ch;
+    max-width: none;
     margin-block: 4px;
     font-size: clamp(1.7rem, 2.15vw, 2.25rem);
     line-height: 1.18;

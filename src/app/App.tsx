@@ -165,6 +165,7 @@ export function App() {
 
   useEffect(() => {
     const previous = previousGameRef.current;
+    const justFinished = !previous.result && Boolean(game.result);
     if (
       didInteractRef.current &&
       previous.startingSfen === game.startingSfen &&
@@ -173,8 +174,8 @@ export function App() {
       const usi = game.moves.at(-1)?.usi;
       if (usi)
         gameAudio.playMove(classifyMoveAudio(previous.sfen, game.sfen, usi));
-      if (game.result) gameAudio.playFinish();
     }
+    if (didInteractRef.current && justFinished) gameAudio.playFinish();
     previousGameRef.current = game;
   }, [game]);
 

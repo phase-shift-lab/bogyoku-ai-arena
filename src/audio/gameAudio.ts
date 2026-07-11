@@ -102,9 +102,9 @@ class GameAudio {
     this.tone(capture ? 420 : 520, start, duration + 0.012, 0.025, "triangle");
   }
 
-  private speakGreeting() {
+  private speak(text: string) {
     if (!this.enabled || !("speechSynthesis" in window)) return;
-    const utterance = new SpeechSynthesisUtterance("お願いします");
+    const utterance = new SpeechSynthesisUtterance(text);
     const japaneseVoices = window.speechSynthesis
       .getVoices()
       .filter((voice) => voice.lang.toLowerCase().startsWith("ja"));
@@ -125,7 +125,7 @@ class GameAudio {
     const now = this.context?.currentTime;
     if (now === undefined) return;
     // D minor pentatonic: a restrained koto/shakuhachi-like opening phrase.
-    this.speakGreeting();
+    this.speak("お願いします");
     [293.66, 349.23, 440, 349.23].forEach((note, index) => {
       const start = now + index * 0.42;
       this.tone(note, start, 0.48, 0.022, "triangle");
@@ -150,6 +150,7 @@ class GameAudio {
   playFinish() {
     const now = this.context?.currentTime;
     if (now === undefined) return;
+    this.speak("ありがとうございました");
     [440, 349.23, 293.66, 220].forEach((note, index) =>
       this.tone(note, now + index * 0.38, 0.55, 0.038),
     );
