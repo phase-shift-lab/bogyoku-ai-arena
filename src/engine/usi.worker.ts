@@ -22,8 +22,11 @@ interface FactoryOptions {
 
 type YaneuraOuFactory = (options: FactoryOptions) => Promise<YaneuraOuModule>;
 
-async function loadFactory(runtime: EngineConfig["runtime"]) {
-  const url = new URL(`/engine/${runtime}/yaneuraou.js`, worker.location.href);
+async function loadFactory(
+  runtime: EngineConfig["runtime"],
+  assetBaseUrl: string,
+) {
+  const url = new URL(`${runtime}/yaneuraou.js`, assetBaseUrl);
   const module = (await import(/* @vite-ignore */ url.href)) as {
     default: YaneuraOuFactory;
   };
@@ -87,9 +90,13 @@ async function waitFor(token: string, timeoutMs = 15000) {
   });
 }
 
-async function initialize(id: number, nextConfig: EngineConfig) {
+async function initialize(
+  id: number,
+  nextConfig: EngineConfig,
+  assetBaseUrl: string,
+) {
   config = nextConfig;
-  const factory = await loadFactory(config.runtime);
+  const factory = await loadFactory(config.runtime, assetBaseUrl);
   const options = {
     print: onOutput,
     printErr: (line) => send({ type: "output", line: `stderr: ${line}` }),
@@ -113,7 +120,7 @@ worker.onmessage = async (event: MessageEvent<WorkerRequest>) => {
   const message = event.data;
   try {
     if (message.type === "initialize") {
-      await initialize(message.id, message.config);
+      await initialize(message.id, message.config, message.assetBaseUrl);
     } else if (message.type === "search") {
       if (activeSearchId !== undefined) await command("stop");
       activeSearchId = message.id;

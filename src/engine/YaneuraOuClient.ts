@@ -37,11 +37,15 @@ export class YaneuraOuClient {
   }
 
   async initialize(config: EngineConfig): Promise<void> {
+    const assetBaseUrl = new URL(
+      `${import.meta.env.BASE_URL}engine/`,
+      window.location.href,
+    ).href;
     await this.request<void>(
       {
         type: "initialize",
         id: this.nextId++,
-        assetBaseUrl: `${import.meta.env.BASE_URL}engine/`,
+        assetBaseUrl,
         config,
       },
       30_000,
