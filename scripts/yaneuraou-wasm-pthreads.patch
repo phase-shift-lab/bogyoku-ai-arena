@@ -1,0 +1,172 @@
+diff --git a/source/thread.cpp b/source/thread.cpp
+index 3c33821..54de221 100644
+--- a/source/thread.cpp
++++ b/source/thread.cpp
+@@ -39,9 +39,17 @@ Thread::Thread(Search::SharedState& sharedState,
+ #if defined(__EMSCRIPTEN_PTHREADS__) || !defined(__EMSCRIPTEN__)
+ 
++#if defined(__EMSCRIPTEN_PTHREADS__) && !STOCKFISH
++	// Emscripten cannot synchronously wait on the browser main thread while a
++	// newly-created pthread initializes its Worker. Allocate the Worker here;
++	// search jobs are still dispatched to stdThread by run_custom_job().
++	this->numaAccessToken = binder();
++	this->worker = std::move(worker_factory(
++	  sharedState, {n, idxInNuma, totalNuma, this->numaAccessToken}));
++#else
+ #if STOCKFISH
+-	run_custom_job([this, &binder, &sharedState /*, &sm*/, n]() {
++	run_custom_job([this, binder, &sharedState /*, &sm*/, n]() {
+ #else
+-	run_custom_job([this, &binder, &sharedState , n , worker_factory]() {
++	run_custom_job([this, binder, &sharedState , n , worker_factory]() {
+ #endif
+ 		// Use the binder to [maybe] bind the threads to a NUMA node before doing
+         // the Worker allocation. Ideally we would also allocate the SearchManager
+@@ -59,10 +68,14 @@ Thread::Thread(Search::SharedState& sharedState,
+ 		this->worker = std::move(worker_factory(sharedState,
+ 												{n, idxInNuma, totalNuma, this->numaAccessToken}));
+ #endif
++
+     });
++#endif
+ 
+     // スレッドはsearching == trueで開始するので、このままworkerのほう待機状態にさせておく
++#if !defined(__EMSCRIPTEN_PTHREADS__)
+     wait_for_search_finished();
++#endif
+ 
+ #else
+     // The single-threaded WASM build already runs inside a Web Worker. Create
+@@ -135,6 +141,9 @@ void Thread::idle_loop() {
+     {
+         std::unique_lock<std::mutex> lk(mutex);
+         searching = false;
++#if defined(__EMSCRIPTEN_PTHREADS__)
++        workerReady.store(true, std::memory_order_release);
++#endif
+         cv.notify_one();  // Wake up anyone waiting for search finished
+                           // 探索の完了を待っているすべてのスレッドを起こします
+
+@@ -354,9 +363,11 @@ void ThreadPool::set(const NumaConfig&   numaConfig,
+         // 🤔 std::make_unique<Thread>()でもWorker::clear()が呼び出されるので
+         //     起動時には二重にclearしてしまうが、仕方がないか…。
++#if !defined(__EMSCRIPTEN_PTHREADS__)
+         clear();
+ 
+         // 🤔 これ、ThreadPool::clear()のなかでやっているので不要なのでは…。
+         main_thread()->wait_for_search_finished();
++#endif
+     }
+ }
+ 
+@@ -405,6 +416,11 @@ void ThreadPool::wait_on_thread(size_t threadId) {
+ 
+ size_t ThreadPool::num_threads() const { return threads.size(); }
+ 
++bool ThreadPool::wasm_workers_ready() const {
++    return std::all_of(threads.begin(), threads.end(),
++                       [](const auto& thread) { return thread->wasm_worker_ready(); });
++}
++
+ 
+ // Wakes up main thread waiting in idle_loop() and returns immediately.
+ // Main thread will wake up other threads and start the search.
+diff --git a/source/thread.h b/source/thread.h
+index 859c8f5..d7c91b0 100644
+--- a/source/thread.h
++++ b/source/thread.h
+@@ -149,6 +149,14 @@ public:
+ 	// コンストラクタで渡したthread_idが返ってくる。
+ 	size_t id() const { return idx; }
+ 
++	bool wasm_worker_ready() const {
++#if defined(__EMSCRIPTEN_PTHREADS__)
++		return workerReady.load(std::memory_order_acquire);
++#else
++		return true;
++#endif
++	}
++
+ 	// 実行しているworker
+ 	LargePagePtr<Search::Worker> worker;
+ 
+@@ -172,6 +180,10 @@ private:
+ 	bool                      exit = false, searching = true;  // Set before starting std::thread
+ 															   // std::threadが始まる前にセットされる
+ 
++#if defined(__EMSCRIPTEN_PTHREADS__)
++	std::atomic_bool          workerReady = false;
++#endif
++
+ 	// stack領域を増やしたstd::thread
+ 	// Workerは、このthreadに割り当てて実行する。
+ 	NativeThread              stdThread;
+@@ -223,6 +235,7 @@ public:
+ 
+ 	// このThreadPoolが保持しているthread数
+ 	size_t num_threads() const;
++	bool   wasm_workers_ready() const;
+ 
+ 	// set()で生成したスレッドの初期化
+     // 💡 各ThreadのWorkerに対してclear()が呼び出される。
+diff --git a/source/usi.cpp b/source/usi.cpp
+index a9f3087..3f43240 100644
+--- a/source/usi.cpp
++++ b/source/usi.cpp
+@@ -516,6 +516,10 @@ bool USIEngine::wasm_command(const std::string& cmd) {
+ 	return usi_cmdexec(cmd);
+ }
+ 
++bool USIEngine::wasm_threads_ready() const {
++	return engine.get_threads().wasm_workers_ready();
++}
++
+ namespace {
+ USIEngine* wasm_usi_engine = nullptr;
+ }
+@@ -528,8 +532,13 @@ EMSCRIPTEN_KEEPALIVE extern "C" int usi_command(const char* command) {
+ 	if (wasm_usi_engine == nullptr || command == nullptr)
+ 		return 1;
+ 
++	if (!wasm_usi_engine->wasm_threads_ready())
++		return 1;
++
+ 	wasm_usi_engine->wasm_command(command);
+-	return 0;
++	// The command has already been consumed. If it created pthreads, following
++	// commands will wait at the precondition above until those threads are ready.
++	return 0;
+ }
+ #endif
+ 
+diff --git a/source/engine/yaneuraou-engine/yaneuraou-search.cpp b/source/engine/yaneuraou-engine/yaneuraou-search.cpp
+--- a/source/engine/yaneuraou-engine/yaneuraou-search.cpp
++++ b/source/engine/yaneuraou-engine/yaneuraou-search.cpp
+@@ -344,7 +344,15 @@ void YaneuraOuEngine::resize_threads() {
+ 
+ // 置換表の割り当て
+ void YaneuraOuEngine::set_tt_size(size_t mb){
++#if defined(__EMSCRIPTEN_PTHREADS__)
++	// The first Threads command must return to the browser event loop before
++	// newly-created pthreads can finish parking in idle_loop(). The table resize
++	// itself is synchronous and does not need a search-thread rendezvous.
++	if (threads.wasm_workers_ready())
++		wait_for_search_finished();
++#else
+ 	wait_for_search_finished();
++#endif
+ 	tt.resize(mb, threads);
+ }
+ 
+diff --git a/source/usi.h b/source/usi.h
+index 47c5068..943ec7d 100644
+--- a/source/usi.h
++++ b/source/usi.h
+@@ -42,6 +42,7 @@ public:
+ #if defined(__EMSCRIPTEN__)
+ 	// Browser workers feed one USI command at a time instead of blocking on stdin.
+ 	bool wasm_command(const std::string& cmd);
++	bool wasm_threads_ready() const;
+ #endif
+ 
+ 	// --------------------

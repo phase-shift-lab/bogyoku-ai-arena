@@ -1,0 +1,999 @@
+:root {
+  color: #f5efe2;
+  background: #120f0b;
+  font-family:
+    "Yu Gothic", "Hiragino Kaku Gothic ProN", Meiryo, system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --ink: #19130c;
+  --paper: #ead8b6;
+  --gold: #d8a34d;
+  --gold-light: #f0ca79;
+  --red: #a52e25;
+  --line: rgb(235 204 145 / 18%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  min-height: 100%;
+  background: #120f0b;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 72% 18%, rgb(129 79 27 / 16%), transparent 30rem),
+    linear-gradient(rgb(16 13 9 / 88%), rgb(16 13 9 / 96%)),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 39px,
+      rgb(255 255 255 / 2%) 40px
+    ),
+    #120f0b;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--gold-light);
+  outline-offset: 3px;
+}
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.side-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  margin-bottom: clamp(10px, 1.8vh, 18px);
+}
+
+.brand {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: grid;
+  width: 32px;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid var(--gold);
+  color: var(--gold-light);
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-size: 1.05rem;
+  transform: rotate(45deg);
+}
+
+.brand-mark::first-line {
+  transform: rotate(-45deg);
+}
+
+.brand > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.brand strong {
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-size: clamp(0.82rem, 1.05vw, 0.95rem);
+  letter-spacing: 0.04em;
+}
+
+.brand small {
+  color: #af9d80;
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+}
+
+.runtime-badge {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: #bdad91;
+  font-size: 0.68rem;
+}
+
+.runtime-badge span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #75b879;
+  box-shadow: 0 0 12px #75b879;
+}
+
+.arena {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.8fr) minmax(380px, 1.25fr) minmax(
+      230px,
+      0.7fr
+    );
+  gap: clamp(16px, 2.4vw, 36px);
+  align-items: center;
+  width: min(1500px, 100%);
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: clamp(18px, 2.5vw, 40px);
+}
+
+.hero-panel h1 {
+  max-width: 12ch;
+  margin: 10px 0;
+  color: #fff9ec;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-size: clamp(1.7rem, 2.45vw, 2.75rem);
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
+
+.hero-panel h1 span {
+  display: block;
+  color: var(--gold-light);
+}
+
+.hero-panel > p {
+  max-width: 36rem;
+  color: #a99b84;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+.eyebrow,
+.label {
+  color: var(--gold);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.mode-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 10px;
+}
+
+.mode-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: #cbbda7;
+  background: rgb(255 255 255 / 2%);
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.mode-card:hover {
+  border-color: rgb(216 163 77 / 55%);
+  transform: translateX(3px);
+}
+
+.mode-card[aria-pressed="true"] {
+  border-color: var(--gold);
+  color: #fff6e4;
+  background: linear-gradient(
+    90deg,
+    rgb(165 46 37 / 25%),
+    rgb(216 163 77 / 7%)
+  );
+}
+
+.mode-card strong {
+  font-size: 0.87rem;
+}
+
+.mode-card span {
+  color: #8f826e;
+  font-size: 0.72rem;
+}
+
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+@media (max-height: 820px) and (min-width: 1101px) {
+  .arena {
+    padding-block: 10px;
+  }
+
+  .brand-mark {
+    width: 28px;
+  }
+
+  .brand small {
+    font-size: 0.55rem;
+  }
+
+  .hero-panel h1 {
+    margin: 7px 0;
+    font-size: clamp(1.55rem, 2.1vw, 2.15rem);
+  }
+
+  .hero-panel > p {
+    font-size: 0.75rem;
+    line-height: 1.45;
+  }
+
+  .mode-list {
+    gap: 6px;
+    margin: 8px 0;
+  }
+
+  .mode-card {
+    padding: 7px 10px;
+  }
+
+  .settings-grid {
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+}
+
+.settings-grid label {
+  display: grid;
+  gap: 5px;
+  color: #a99b84;
+  font-size: 0.68rem;
+}
+
+.settings-grid select {
+  min-width: 0;
+  height: 36px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: #eadbc2;
+  background: #17120d;
+}
+
+.settings-grid input[type="range"] {
+  width: 100%;
+  accent-color: var(--gold);
+}
+
+.settings-grid .checkbox-setting {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  align-self: end;
+  min-height: 36px;
+  gap: 8px;
+}
+
+.checkbox-setting input {
+  accent-color: var(--gold);
+}
+
+.primary-button,
+.secondary-button {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 3px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary-button {
+  border: 1px solid #e0b660;
+  color: #201306;
+  background: linear-gradient(135deg, #efca7a, #c99036);
+  box-shadow: 0 12px 38px rgb(183 120 35 / 18%);
+}
+
+.primary-button:disabled,
+.secondary-button:disabled {
+  cursor: wait;
+  filter: grayscale(0.65);
+  opacity: 0.58;
+}
+
+.secondary-button {
+  border: 1px solid var(--line);
+  color: #c6b9a2;
+  background: transparent;
+}
+
+.game-panel {
+  min-width: 0;
+  padding: clamp(14px, 2vw, 24px);
+  border: 1px solid rgb(235 204 145 / 25%);
+  background: linear-gradient(145deg, rgb(46 36 23 / 96%), rgb(24 19 13 / 98%));
+  box-shadow: 0 35px 90px rgb(0 0 0 / 50%);
+}
+
+.game-toolbar,
+.board-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.game-toolbar {
+  margin-bottom: 16px;
+}
+
+.game-toolbar > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.game-toolbar strong {
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-size: 1.1rem;
+}
+
+.toolbar-button {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: #c6b9a2;
+  background: transparent;
+  cursor: pointer;
+}
+
+.status-chip {
+  padding: 6px 10px;
+  border: 1px solid rgb(117 184 121 / 35%);
+  border-radius: 99px;
+  color: #9bd19f;
+  background: rgb(75 132 79 / 10%);
+  font-size: 0.7rem;
+}
+
+.status-chip[data-status="thinking"] {
+  border-color: rgb(216 163 77 / 45%);
+  color: var(--gold-light);
+}
+
+.status-chip[data-status="playing"] {
+  border-color: rgb(216 163 77 / 45%);
+  color: var(--gold-light);
+}
+
+.play-area {
+  position: relative;
+}
+
+.board-shell {
+  width: min(100%, calc(100dvh - 220px), 680px);
+  margin: auto;
+  padding: clamp(7px, 1.5vw, 13px);
+  border: 1px solid #8a632c;
+  background: #6a431e;
+  box-shadow: inset 0 0 25px rgb(44 23 7 / 70%);
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  grid-template-rows: repeat(9, minmax(0, 1fr));
+  aspect-ratio: 1;
+  border-top: 1px solid #604016;
+  border-left: 1px solid #604016;
+  background:
+    linear-gradient(rgb(255 255 255 / 7%), transparent),
+    repeating-linear-gradient(
+      88deg,
+      transparent 0 32px,
+      rgb(77 45 13 / 4%) 33px
+    ),
+    var(--paper);
+}
+
+.square {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  place-items: center;
+  border-right: 1px solid #604016;
+  border-bottom: 1px solid #604016;
+  border-top: 0;
+  border-left: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.square:disabled {
+  cursor: not-allowed;
+}
+
+.square[aria-selected="true"] {
+  background: rgb(165 46 37 / 34%);
+  box-shadow: inset 0 0 0 3px rgb(165 46 37 / 65%);
+}
+
+.square[data-last="true"] {
+  background: rgb(216 163 77 / 22%);
+}
+
+.square[data-legal="true"]::after {
+  position: absolute;
+  width: 22%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgb(74 102 52 / 68%);
+  content: "";
+}
+
+.square[data-legal="true"] {
+  position: relative;
+}
+
+.square[data-legal="true"] .piece {
+  z-index: 1;
+  box-shadow: 0 0 0 3px rgb(74 102 52 / 58%);
+}
+
+.piece {
+  display: grid;
+  width: 77%;
+  aspect-ratio: 0.86;
+  place-items: center;
+  clip-path: polygon(50% 0, 100% 17%, 90% 100%, 10% 100%, 0 17%);
+  color: var(--ink);
+  background: linear-gradient(145deg, #f7dda1, #d4a755);
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-size: clamp(0.75rem, 2.3vw, 1.65rem);
+  font-weight: 900;
+  filter: drop-shadow(0 2px 1px rgb(70 42 8 / 25%));
+}
+
+.square[data-side="gote"] .piece {
+  transform: rotate(180deg);
+}
+
+.hand {
+  display: flex;
+  min-height: 42px;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 2px;
+  color: #b9aa92;
+  font-size: 0.72rem;
+}
+
+.hand[data-side="gote"] {
+  flex-direction: row-reverse;
+}
+
+.hand > div {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.hand-piece {
+  min-width: 34px;
+  padding: 5px 7px;
+  border: 1px solid #8a632c;
+  border-radius: 2px;
+  color: var(--ink);
+  background: #dfbd78;
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.hand-piece[aria-pressed="true"] {
+  outline: 3px solid var(--red);
+}
+
+.hand-piece small {
+  margin-left: 3px;
+}
+
+.empty-hand {
+  color: #6f624f;
+}
+
+.game-message {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  color: var(--gold-light);
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.promotion-dialog {
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  min-width: 230px;
+  gap: 16px;
+  padding: 22px;
+  border: 1px solid var(--gold);
+  color: #fff5df;
+  background: rgb(24 19 13 / 97%);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 70%);
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.promotion-dialog > div {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.board-footer {
+  margin-top: 13px;
+  color: #998b74;
+  font-size: 0.7rem;
+}
+
+.board-footer span:nth-child(2) {
+  color: var(--gold-light);
+}
+
+.analysis-panel {
+  display: grid;
+  gap: 12px;
+  max-height: calc(100dvh - 36px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(216 163 77 / 40%) transparent;
+}
+
+.analysis-panel > section {
+  padding: 18px;
+  border: 1px solid var(--line);
+  background: rgb(255 255 255 / 2.2%);
+}
+
+.panel-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 16px;
+}
+
+.panel-heading strong {
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+}
+
+.stat-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.stat-list div,
+.metric {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-list div {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.stat-list dt,
+.metric span {
+  color: #8e826f;
+  font-size: 0.72rem;
+}
+
+.stat-list dd {
+  margin: 0;
+  color: #e1d2b9;
+  font-family: ui-monospace, monospace;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+}
+
+.strategy-copy,
+.privacy-note p {
+  margin: 0;
+  color: #988c78;
+  font-size: 0.75rem;
+  line-height: 1.75;
+}
+
+.metric {
+  margin-top: 16px;
+}
+
+.metric strong {
+  color: var(--gold-light);
+  font-size: 0.72rem;
+}
+
+.progress-track {
+  height: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+  background: #393024;
+}
+
+.progress-track span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--red), var(--gold));
+}
+
+.record-tools {
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: rgb(255 255 255 / 2.2%);
+}
+
+.record-tools summary {
+  color: #d5c4a8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.record-tools label {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0 8px;
+  color: var(--gold);
+  font-size: 0.68rem;
+}
+
+.record-tools textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  color: #e2d6c3;
+  background: #17120d;
+  font:
+    0.68rem/1.5 ui-monospace,
+    monospace;
+}
+
+.record-tools .secondary-button {
+  margin: 0 6px 6px 0;
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.7rem;
+}
+
+.evaluation-meter {
+  display: grid;
+  grid-template-columns: auto minmax(80px, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 0;
+  color: #8e826f;
+  font-size: 0.62rem;
+}
+
+.evaluation-meter meter {
+  width: 100%;
+  accent-color: var(--gold);
+}
+
+.variation-tree {
+  margin-top: 12px;
+  color: #d7c7ac;
+  font-size: 0.7rem;
+}
+
+.variation-tree ol {
+  margin: 0;
+  padding-left: 18px;
+  list-style: none;
+}
+
+.variation-tree > ol {
+  display: grid;
+  gap: 9px;
+  padding-left: 12px;
+  border-left: 1px solid rgb(216 163 77 / 36%);
+}
+
+.variation-root,
+.variation-branch {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  background: rgb(216 163 77 / 5%);
+}
+
+.variation-root {
+  width: fit-content;
+  margin-bottom: 9px;
+  color: var(--gold-light);
+}
+
+.variation-branch span {
+  color: var(--gold-light);
+  font-family: ui-monospace, monospace;
+}
+
+.variation-branch + ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  padding: 6px 0 0 9px;
+  border-left: 1px solid rgb(216 163 77 / 24%);
+}
+
+.variation-branch + ol li {
+  display: flex;
+  gap: 3px;
+  color: #8e826f;
+}
+
+.variation-branch + ol code {
+  color: #d7c7ac;
+  font-family: ui-monospace, monospace;
+}
+
+.empty-analysis {
+  margin: 12px 0 0;
+  color: #8e826f;
+  font-size: 0.72rem;
+}
+
+.analysis-panel > .privacy-note {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  border-color: rgb(117 184 121 / 22%);
+}
+
+.privacy-note > span {
+  color: #75b879;
+}
+
+.privacy-note strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #b7d8b9;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 1050px) {
+  .arena {
+    grid-template-columns: minmax(220px, 0.7fr) minmax(380px, 1.3fr);
+    align-items: start;
+  }
+
+  .analysis-panel {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, 1fr);
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+@media (max-width: 760px) {
+  .runtime-badge {
+    display: none;
+  }
+
+  .arena {
+    display: flex;
+    flex-direction: column;
+    padding: 28px 18px 48px;
+  }
+
+  .hero-panel,
+  .game-panel,
+  .analysis-panel {
+    width: 100%;
+  }
+
+  .board-shell {
+    width: min(100%, 680px);
+  }
+
+  .hero-panel h1 {
+    max-width: 12ch;
+  }
+
+  .mode-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mode-card {
+    flex-direction: column;
+    gap: 5px;
+    align-items: flex-start;
+  }
+
+  .analysis-panel {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-height: 1050px) and (min-width: 1060px) {
+  .arena {
+    min-height: 100dvh;
+    padding-block: 14px;
+  }
+
+  .side-brand-row {
+    margin-bottom: 12px;
+  }
+
+  .hero-panel h1 {
+    margin-block: 10px;
+    font-size: clamp(2rem, 2.8vw, 3rem);
+  }
+
+  .hero-panel > p {
+    line-height: 1.6;
+  }
+
+  .mode-list {
+    margin-block: 12px 10px;
+  }
+
+  .mode-card {
+    padding-block: 9px;
+  }
+
+  .board-shell {
+    width: min(100%, calc(100dvh - 190px), 680px);
+  }
+
+  .analysis-panel > section {
+    padding: 13px;
+  }
+}
+
+@media (max-height: 950px) and (min-width: 1060px) {
+  .arena {
+    padding-block: 3px;
+  }
+
+  .side-brand-row {
+    margin-bottom: 5px;
+  }
+
+  .brand-mark {
+    width: 30px;
+  }
+
+  .brand strong {
+    font-size: 0.92rem;
+  }
+
+  .brand small {
+    font-size: 0.54rem;
+  }
+
+  .eyebrow {
+    margin-block: 5px;
+    font-size: 0.6rem;
+  }
+
+  .hero-panel h1 {
+    max-width: 9ch;
+    margin-block: 4px;
+    font-size: clamp(1.7rem, 2.15vw, 2.25rem);
+    line-height: 1.18;
+  }
+
+  .hero-panel > p {
+    margin-block: 8px;
+    font-size: 0.68rem;
+    line-height: 1.35;
+  }
+
+  .mode-list {
+    gap: 5px;
+    margin-block: 7px;
+  }
+
+  .mode-card {
+    min-height: 35px;
+    padding: 6px 9px;
+  }
+
+  .settings-grid {
+    gap: 4px 8px;
+    margin-bottom: 6px;
+  }
+
+  .settings-grid label {
+    gap: 2px;
+    font-size: 0.61rem;
+  }
+
+  .settings-grid select {
+    height: 31px;
+  }
+
+  .settings-grid input[type="range"] {
+    height: 14px;
+  }
+
+  .control-row {
+    gap: 6px;
+  }
+
+  .control-row button {
+    min-height: 34px;
+    padding-block: 6px;
+  }
+
+  .game-toolbar {
+    min-height: 42px;
+  }
+
+  .board-shell {
+    width: min(100%, calc(100dvh - 145px), 680px);
+  }
+
+  .analysis-panel {
+    gap: 8px;
+  }
+
+  .analysis-panel > section {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 440px) {
+  .brand small {
+    display: none;
+  }
+
+  .mode-list {
+    grid-template-columns: 1fr;
+  }
+
+  .piece {
+    font-size: clamp(0.65rem, 5vw, 1.2rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}

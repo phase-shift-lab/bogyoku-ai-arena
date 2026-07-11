@@ -1,0 +1,450 @@
+diff --git a/source/Makefile b/source/Makefile
+index 95727a7..2c40c5e 100644
+--- a/source/Makefile
++++ b/source/Makefile
+@@ -226,17 +226,24 @@ else
+ 	endif
+ 	ifneq (,$(findstring em++,$(COMPILER)))
+ 		EM_EXPORT_NAME=YaneuraOu
++		WASM_THREADS ?= 1
+ 		EM_INITIAL_MEMORY_SIZE=$(shell if [ $(MATERIAL_LEVEL) -ge 5 ]; then echo 385875968; else echo 138412032; fi)
+ 		CPPFLAGS += -Wno-unused-parameter
+ 		CPPFLAGS += -DUSE_WASM_SIMD -msimd128
+ 		CPPFLAGS += -DUSE_SSE42 -msse4.2
+-		CPPFLAGS += -pthread
++		ifeq ($(WASM_THREADS),1)
++			CPPFLAGS += -pthread
++		endif
+ 		CPPFLAGS += -s STRICT=1
+ 		LDFLAGS += --pre-js wasm_pre.js
+ 		# LDFLAGS += --preload-file eval/nn.bin
+-		LDFLAGS += -s MODULARIZE=1 -s EXPORT_NAME="$(EM_EXPORT_NAME)" -s ENVIRONMENT=web,worker,node
+-		LDFLAGS += -s PTHREAD_POOL_SIZE=32
+-		# -s PTHREAD_POOL_SIZE_STRICT=32
++		LDFLAGS += -s MODULARIZE=1 -s EXPORT_ES6=1 -s EXPORT_NAME="$(EM_EXPORT_NAME)" -s ENVIRONMENT=web,worker,node
++		ifeq ($(WASM_THREADS),1)
++			# Preload the four workers used by the fixed browser search pool.
++			LDFLAGS += -s PTHREAD_POOL_SIZE=4
++		endif
+ 		LDFLAGS += -s FILESYSTEM=1 -s EXIT_RUNTIME=0 -s "EXPORTED_RUNTIME_METHODS=['FS','ccall']"
++		LDFLAGS += -s "EXPORTED_FUNCTIONS=['_main','_usi_command','_wasm_poll_output']"
++		LDFLAGS += -s "INCOMING_MODULE_JS_API=['locateFile','print','printErr','onRuntimeInitialized']"
+ 		LDFLAGS += -s ALLOW_MEMORY_GROWTH=1 -s INITIAL_MEMORY=$(EM_INITIAL_MEMORY_SIZE) -s MAXIMUM_MEMORY=4294967296
+ 		LDFLAGS += -s STACK_SIZE=67108864
+diff --git a/source/engine.cpp b/source/engine.cpp
+index 31c39ce..2fcaecf 100644
+--- a/source/engine.cpp
++++ b/source/engine.cpp
+@@ -506,6 +506,14 @@ std::string Engine::thread_allocation_information_as_string() const {
+ 
+ // 💡 USIで"isready"に対して時間のかかる処理を実行したい時に用いる。
+ void Engine::run_heavy_job(std::function<void()> job) {
++#if defined(__EMSCRIPTEN__)
++    // Browser workers cannot service another keep-alive pthread while a
++    // synchronous USI command is running. Desktop USI GUIs are the only
++    // consumers that need the keep-alive newline, so initialize in place.
++    job();
++    return;
++#endif
++
+     // --- Keep Alive的な処理 ---
+ 
+     // "isready"を受け取ったあと、"readyok"を返すまで5秒ごとに改行を送るように修正する。(keep alive的な処理)
+diff --git a/source/engine/yaneuraou-engine/yaneuraou-search.cpp b/source/engine/yaneuraou-engine/yaneuraou-search.cpp
+index 5233fd1..a3dcdc1 100644
+--- a/source/engine/yaneuraou-engine/yaneuraou-search.cpp
++++ b/source/engine/yaneuraou-engine/yaneuraou-search.cpp
+@@ -5922,13 +5922,25 @@ namespace {
+ void engine_main() {
+ 
+ 	// ここで作ったエンジン
++#if defined(__EMSCRIPTEN__)
++    static auto engine = std::make_unique<YaneuraOuEngine>();
++#else
+     auto engine = std::make_unique<YaneuraOuEngine>();
++#endif
+ 
+     // USIコマンドの応答部
++#if defined(__EMSCRIPTEN__)
++    static auto usi = std::make_unique<USIEngine>();
++#else
+     auto usi = std::make_unique<USIEngine>();
++#endif
+     usi->set_engine(*engine);  // エンジン実装を差し替える。
+     usi->enqueue_startup_commands(CommandLine::g);
+ 
++#if defined(__EMSCRIPTEN__)
++    set_wasm_usi_engine(usi.get());
++#endif
++
+     // USIコマンドの応答のためのループ
+     usi->loop();
+ }
+diff --git a/source/thread.cpp b/source/thread.cpp
+index 549f3a4..d8c5687 100644
+--- a/source/thread.cpp
++++ b/source/thread.cpp
+@@ -30,9 +30,13 @@ Thread::Thread(Search::SharedState& sharedState,
+     idxInNuma(numaN),
+     totalNuma(totalNumaCount),
+     //nthreads(sharedState.options["Threads"]),
++#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
++    stdThread() {
++#else
+     stdThread(&Thread::idle_loop, this) {
++#endif
+ 
+-#if !defined(__EMSCRIPTEN__)
++#if defined(__EMSCRIPTEN_PTHREADS__) || !defined(__EMSCRIPTEN__)
+ 
+ #if STOCKFISH
+ 	run_custom_job([this, &binder, &sharedState /*, &sm*/, n]() {
+@@ -61,17 +65,12 @@ Thread::Thread(Search::SharedState& sharedState,
+     wait_for_search_finished();
+ 
+ #else
+-    // yaneuraou.wasm
+-    // wait_for_search_finished すると、ブラウザのメインスレッドをブロックしデッドロックが発生するため、コメントアウト。
+-    //
+-    // 新しいスレッドが cv を設定するのを待ってから、ブラウザに処理をパスしたいが、
+-    // 新しいスレッド用のworkerを作成するためには、いったんブラウザに処理をパスする必要がある。
+-    //
+-    // https://bugzilla.mozilla.org/show_bug.cgi?id=1049079
+-    //
+-    // threadStarted という変数を設けて全てのスレッドが開始するまでリトライするようにする
+-    //
+-    // 参考：https://github.com/lichess-org/stockfish.wasm/blob/a022fa1405458d1bc1ba22fe813bace961859102/src/thread.cpp#L38
++    // The single-threaded WASM build already runs inside a Web Worker. Create
++    // the search worker directly and execute jobs synchronously in that worker.
++    this->numaAccessToken = binder();
++    this->worker = std::move(worker_factory(
++      sharedState, {n, idxInNuma, totalNuma, this->numaAccessToken}));
++    searching = false;
+ #endif
+ }
+ 
+@@ -88,9 +87,11 @@ Thread::~Thread() {
+     ASSERT_LV3(!searching);
+ 
+     // 探索は終わっているのでexitフラグをセットしてstart_searching()を呼べば終了するはず。
++#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_PTHREADS__)
+     exit = true;
+     start_searching();
+     stdThread.join();
++#endif
+ }
+ 
+ // Wakes up the thread that will start the search
+@@ -114,14 +115,21 @@ void Thread::clear_worker() {
+ 
+ void Thread::wait_for_search_finished() {
+ 
++#if !defined(__EMSCRIPTEN__) || defined(__EMSCRIPTEN_PTHREADS__)
+     std::unique_lock<std::mutex> lk(mutex);
+     cv.wait(lk, [&] { return !searching; });
++#endif
+ }
+ 
+ // Launching a function in the thread
+ // スレッド内で関数を実行します
+ 
+ void Thread::run_custom_job(std::function<void()> f) {
++#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
++    searching = true;
++    f();
++    searching = false;
++#else
+     {
+         std::unique_lock<std::mutex> lk(mutex);
+         cv.wait(lk, [&] { return !searching; });
+@@ -129,6 +137,7 @@ void Thread::run_custom_job(std::function<void()> f) {
+         searching = true;
+     }
+     cv.notify_one();
++#endif
+ }
+ 
+ void Thread::ensure_network_replicated() { worker->ensure_network_replicated(); }
+@@ -194,5 +203,16 @@ void ThreadPool::set(const NumaConfig&   numaConfig,
+                      const Search::WorkerFactory& worker_factory
+ ) {
+ 
++#if defined(__EMSCRIPTEN_PTHREADS__)
++    // Browser pthread workers cannot be synchronously joined and recreated
++    // while an exported USI command is running. The threaded artifact uses a
++    // fixed pool, so reuse it when the requested size has not changed. Per-game
++    // state and the transposition table are reset synchronously by isready().
++    if (!threads.empty() && threads.size() == requested_threads)
++    {
++        return;
++    }
++#endif
++
+     /*  📓
+ 		このあと、スレッドをいったん全部解体しているのは、確保するスレッド数がいま確保しているスレッド数と
+diff --git a/source/usi.cpp b/source/usi.cpp
+index d0ad0c1..a9f3087 100644
+--- a/source/usi.cpp
++++ b/source/usi.cpp
+@@ -1,6 +1,7 @@
+ ﻿#include <cstdlib>
+ #include <sstream>
+ #include <queue>
++#include <mutex>
+ 
+ #include "types.h"
+ #include "usi.h"
+@@ -21,6 +22,29 @@
+ 
+ namespace YaneuraOu {
+ 
++#if defined(__EMSCRIPTEN__)
++namespace {
++std::mutex wasm_output_mutex;
++std::queue<std::string> wasm_output_queue;
++std::string wasm_output_buffer;
++
++void emit_usi_line(std::string line) {
++    std::lock_guard<std::mutex> lock(wasm_output_mutex);
++    wasm_output_queue.push(std::move(line));
++}
++}
++
++EMSCRIPTEN_KEEPALIVE extern "C" const char* wasm_poll_output() {
++    std::lock_guard<std::mutex> lock(wasm_output_mutex);
++    if (wasm_output_queue.empty())
++        return nullptr;
++
++    wasm_output_buffer = std::move(wasm_output_queue.front());
++    wasm_output_queue.pop();
++    return wasm_output_buffer.c_str();
++}
++#endif
++
+ // benchmark用のコマンドその2
+ constexpr auto BenchmarkCommand = "speedtest";
+ 
+@@ -487,6 +513,28 @@ bool USIEngine::usi_cmdexec(const std::string& cmd) {
+ #endif
+ }
+ 
++#if defined(__EMSCRIPTEN__)
++bool USIEngine::wasm_command(const std::string& cmd) {
++	return usi_cmdexec(cmd);
++}
++
++namespace {
++USIEngine* wasm_usi_engine = nullptr;
++}
++
++void set_wasm_usi_engine(USIEngine* engine) {
++	wasm_usi_engine = engine;
++}
++
++EMSCRIPTEN_KEEPALIVE extern "C" int usi_command(const char* command) {
++	if (wasm_usi_engine == nullptr || command == nullptr)
++		return 1;
++
++	wasm_usi_engine->wasm_command(command);
++	return 0;
++}
++#endif
++
+ 
+ // コマンドラインを解析して、Search::LimitsTypeに反映させて返す。
+ Search::LimitsType USIEngine::parse_limits(std::istream& is) {
+@@ -1277,7 +1323,11 @@ Square USIEngine::to_square(const std::string& str) {
+ #endif
+ 
+ void USIEngine::on_update_no_moves(const Engine::InfoShort& info) {
++#if defined(__EMSCRIPTEN__)
++    emit_usi_line("info depth " + std::to_string(info.depth) + " score " + format_score(info.score));
++#else
+     sync_cout << "info depth " << info.depth << " score " << format_score(info.score) << sync_endl;
++#endif
+ }
+ 
+ void USIEngine::on_update_full(const Engine::InfoFull& info /*, bool showWDL */) {
+@@ -1320,7 +1370,11 @@ void USIEngine::on_update_full(const Engine::InfoFull& info /*, bool showWDL */)
+        << " time " << info.timeMs  //
+        << " pv " << info.pv;       //
+ 
++#if defined(__EMSCRIPTEN__)
++    emit_usi_line(ss.str());
++#else
+     sync_cout << ss.str() << sync_endl;
++#endif
+ }
+ 
+ void USIEngine::on_iter(const Engine::InfoIter& info) {
+@@ -1332,15 +1386,25 @@ void USIEngine::on_iter(const Engine::InfoIter& info) {
+        << " currmove " << info.currmove               //
+        << " currmovenumber " << info.currmovenumber;  //
+ 
++#if defined(__EMSCRIPTEN__)
++    emit_usi_line(ss.str());
++#else
+     sync_cout << ss.str() << sync_endl;
++#endif
+ }
+ 
+ void USIEngine::on_bestmove(std::string_view bestmove, std::string_view ponder) {
+-
++#if defined(__EMSCRIPTEN__)
++    std::string line = "bestmove " + std::string(bestmove);
++    if (!ponder.empty())
++        line += " ponder " + std::string(ponder);
++    emit_usi_line(std::move(line));
++#else
+     sync_cout << "bestmove " << bestmove;
+     if (!ponder.empty())
+         std::cout << " ponder " << ponder;
+     std::cout << sync_endl;
++#endif
+ }
+ 
+ void USIEngine::terminate_on_critical_error(const std::string& fullCommand,
+@@ -1351,7 +1415,13 @@ void USIEngine::terminate_on_critical_error(const std::string& fullCommand,
+     std::exit(1);
+ }
+ 
+-void USIEngine::on_update_string(std::string_view info) { sync_cout << "info string " << info << sync_endl; }
++void USIEngine::on_update_string(std::string_view info) {
++#if defined(__EMSCRIPTEN__)
++    emit_usi_line("info string " + std::string(info));
++#else
++    sync_cout << "info string " << info << sync_endl;
++#endif
++}
+ 
+ 
+ // 🌈 以下、やねうら王独自 🌈
+diff --git a/source/usi.h b/source/usi.h
+index f984b0c..47c5068 100644
+--- a/source/usi.h
++++ b/source/usi.h
+@@ -39,6 +39,11 @@ public:
+ 	// "quit"コマンドが送られてくるまでこのループは抜けない。
+ 	void loop();
+ 
++#if defined(__EMSCRIPTEN__)
++	// Browser workers feed one USI command at a time instead of blocking on stdin.
++	bool wasm_command(const std::string& cmd);
++#endif
++
+ 	// --------------------
+ 	// USI関係の記法変換部
+ 	// --------------------
+@@ -241,6 +246,11 @@ private:
+ #endif
+ };
+ 
++#if defined(__EMSCRIPTEN__)
++// Registers the process-lifetime USI instance used by the JavaScript bridge.
++void set_wasm_usi_engine(USIEngine* engine);
++#endif
++
+ } // namespace YaneuraOu
+ 
+ #endif // #ifndef USI_H_INCLUDED
+diff --git a/source/wasm_pre.js b/source/wasm_pre.js
+index b10378d..cae5e66 100644
+--- a/source/wasm_pre.js
++++ b/source/wasm_pre.js
+@@ -23,40 +23,74 @@
+ 
+   Module["terminate"] = function () {
+     quit = true;
+-    PThread.terminateAllThreads();
++    if (typeof PThread !== "undefined") PThread.terminateAllThreads();
+   };
+ 
+   // Command queue
+ 
+   var queue = [];
+   var backoff = 1;
++  var runtimeReady = false;
++  var pollScheduled = false;
++
++  function schedulePoll(delay) {
++    if (quit || !runtimeReady || pollScheduled || queue.length === 0) return;
++    pollScheduled = true;
++    setTimeout(poll, delay);
++  }
+ 
+   function poll() {
+-    var command = queue.shift();
+-    if (quit || command === undefined) return;
+-
+-    if (command === "quit") return Module["terminate"]();
+-
+-    var tryLater = Module["ccall"](
+-      "usi_command",
+-      "number",
+-      ["string"],
+-      [command]
+-    );
+-    if (tryLater) queue.unshift(command);
+-    backoff = tryLater ? backoff * 2 : 1;
+-    setTimeout(poll, backoff);
++    pollScheduled = false;
++    var item = queue.shift();
++    if (quit || item === undefined) return;
++
++    if (item.command === "quit") {
++      item.resolve();
++      return Module["terminate"]();
++    }
++
++    try {
++      var tryLater = Module["ccall"](
++        "usi_command",
++        "number",
++        ["string"],
++        [item.command]
++      );
++      if (tryLater) queue.unshift(item);
++      else item.resolve();
++      backoff = tryLater ? Math.min(backoff * 2, 50) : 1;
++    } catch (error) {
++      item.reject(error);
++      backoff = 1;
++    }
++    schedulePoll(backoff);
+   }
+ 
++  function drainOutput() {
++    if (quit) return;
++
++    var line;
++    do {
++      line = Module["ccall"]("wasm_poll_output", "string", [], []);
++      if (line) Module["print"](line);
++    } while (line);
++
++    setTimeout(drainOutput, 5);
++  }
++
++  var callerRuntimeInitialized = Module["onRuntimeInitialized"];
++
+   Module["postMessage"] = function (command) {
+-    queue.push(command);
++    return new Promise(function (resolve, reject) {
++      queue.push({ command: command, resolve: resolve, reject: reject });
++      schedulePoll(0);
++    });
+   };
+ 
+-  Module["postRun"] = function () {
+-    Module["postMessage"] = function (command) {
+-      queue.push(command);
+-      if (queue.length === 1) poll();
+-    };
+-    poll();
++  Module["onRuntimeInitialized"] = function () {
++    runtimeReady = true;
++    schedulePoll(0);
++    drainOutput();
++    if (callerRuntimeInitialized) callerRuntimeInitialized();
+   };
+ })();
