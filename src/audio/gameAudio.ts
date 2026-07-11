@@ -122,15 +122,7 @@ class GameAudio {
   }
 
   playStart() {
-    const now = this.context?.currentTime;
-    if (now === undefined) return;
-    // D minor pentatonic: a restrained koto/shakuhachi-like opening phrase.
     this.speak("お願いします");
-    [293.66, 349.23, 440, 349.23].forEach((note, index) => {
-      const start = now + index * 0.42;
-      this.tone(note, start, 0.48, 0.022, "triangle");
-      this.tone(note * 2, start + 0.012, 0.13, 0.007, "sine");
-    });
   }
 
   playMove(cue: MoveAudioCue) {
@@ -148,12 +140,7 @@ class GameAudio {
   }
 
   playFinish() {
-    const now = this.context?.currentTime;
-    if (now === undefined) return;
     this.speak("ありがとうございました");
-    [440, 349.23, 293.66, 220].forEach((note, index) =>
-      this.tone(note, now + index * 0.38, 0.55, 0.038),
-    );
   }
 }
 
