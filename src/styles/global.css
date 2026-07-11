@@ -138,7 +138,7 @@ a:focus-visible {
 }
 
 .hero-panel h1 {
-  max-width: 12ch;
+  max-width: 14ch;
   margin: 10px 0;
   color: #fff9ec;
   font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
@@ -148,7 +148,7 @@ a:focus-visible {
 }
 
 .hero-panel h1 span {
-  display: block;
+  display: inline;
   color: var(--gold-light);
 }
 
@@ -497,26 +497,49 @@ a:focus-visible {
   display: flex;
   gap: 5px;
   flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
 }
 
 .hand-piece {
-  min-width: 34px;
-  padding: 5px 7px;
-  border: 1px solid #8a632c;
-  border-radius: 2px;
+  position: relative;
+  min-width: 38px;
+  min-height: 42px;
+  padding: 7px 8px 5px;
+  border: 0;
+  clip-path: polygon(50% 0, 94% 16%, 86% 100%, 14% 100%, 6% 16%);
   color: var(--ink);
-  background: #dfbd78;
+  background: linear-gradient(145deg, #f5d58e, #d2a34e);
   font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-size: 1.05rem;
   font-weight: 800;
+  filter: drop-shadow(0 2px 1px rgb(70 42 8 / 28%));
   cursor: pointer;
 }
 
+.hand[data-side="gote"] .hand-piece {
+  transform: rotate(180deg);
+}
+
 .hand-piece[aria-pressed="true"] {
-  outline: 3px solid var(--red);
+  box-shadow: inset 0 0 0 3px var(--gold-light);
+  filter: drop-shadow(0 0 4px rgb(239 185 72 / 75%));
 }
 
 .hand-piece small {
-  margin-left: 3px;
+  position: absolute;
+  right: 7px;
+  bottom: 3px;
+  font-size: 0.6rem;
+}
+
+.hand[data-side="gote"] .hand-piece small {
+  transform: rotate(180deg);
+}
+
+.resign-button {
+  color: #d9a7a0;
+  border-color: #73443f;
 }
 
 .empty-hand {
@@ -909,7 +932,7 @@ a:focus-visible {
   }
 
   .hero-panel h1 {
-    max-width: 9ch;
+    max-width: 14ch;
     margin-block: 4px;
     font-size: clamp(1.7rem, 2.15vw, 2.25rem);
     line-height: 1.18;

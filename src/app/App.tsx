@@ -461,6 +461,20 @@ export function App() {
     dispatch({ type: "game-started" });
   };
 
+  const resignGame = () => {
+    const loser =
+      state.mode === "human-vs-ai"
+        ? resolvedHumanSide
+        : parseSfen("standard", game.sfen, true).unwrap().turn;
+    const sideLabel = loser === "sente" ? "先手" : "後手";
+    if (!window.confirm(`${sideLabel}が投了します。よろしいですか？`)) return;
+    searchGeneration.current += 1;
+    engineRef.current?.stop();
+    gameDispatch({ type: "resigned", loser });
+    dispatch({ type: "game-finished" });
+    gameAudio.playFinish();
+  };
+
   const swapAiSidesAndRestart = () => {
     void gameAudio.unlock().then(() => gameAudio.playStart());
     const previousStyle = senteAiStyle;
@@ -519,7 +533,7 @@ export function App() {
           </div>
           <div className="eyebrow">LOCAL-FIRST SHOGI ENGINE</div>
           <h1 id="arena-heading">
-            玉で攻める。<span>棒玉の一手を磨く。</span>
+            玉で攻める。<span>棒玉を磨く。</span>
           </h1>
           <p>
             YaneuraOuを端末内で実行し、棒玉の序盤選好と戦術安全性を組み合わせる対局・解析環境です。
@@ -743,6 +757,16 @@ export function App() {
                 type="button"
               >
                 一時停止
+              </button>
+            ) : null}
+            {state.mode !== "analysis" &&
+            (state.status === "playing" || state.status === "thinking") ? (
+              <button
+                className="secondary-button resign-button"
+                onClick={resignGame}
+                type="button"
+              >
+                投了
               </button>
             ) : null}
             {state.mode === "ai-vs-ai" && state.status === "paused" ? (

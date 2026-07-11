@@ -73,7 +73,7 @@ class GameAudio {
 
   private woodClick(start: number, capture: boolean) {
     if (!this.enabled || !this.context || !this.master) return;
-    const duration = capture ? 0.075 : 0.052;
+    const duration = capture ? 0.052 : 0.036;
     const buffer = this.context.createBuffer(
       1,
       Math.ceil(this.context.sampleRate * duration),
@@ -81,8 +81,9 @@ class GameAudio {
     );
     const data = buffer.getChannelData(0);
     for (let index = 0; index < data.length; index += 1) {
-      const decay = Math.pow(1 - index / data.length, capture ? 2.5 : 3.5);
-      data[index] = (Math.random() * 2 - 1) * decay;
+      const decay = Math.pow(1 - index / data.length, capture ? 4.2 : 5.2);
+      const attack = Math.min(1, index / Math.max(1, data.length * 0.035));
+      data[index] = (Math.random() * 2 - 1) * decay * attack;
     }
 
     const source = this.context.createBufferSource();
@@ -90,25 +91,45 @@ class GameAudio {
     const envelope = this.context.createGain();
     source.buffer = buffer;
     filter.type = "bandpass";
-    filter.frequency.value = capture ? 1450 : 1850;
-    filter.Q.value = 1.15;
-    envelope.gain.setValueAtTime(capture ? 0.2 : 0.14, start);
+    filter.frequency.value = capture ? 2100 : 2650;
+    filter.Q.value = 1.8;
+    envelope.gain.setValueAtTime(capture ? 0.17 : 0.135, start);
     envelope.gain.exponentialRampToValueAtTime(0.001, start + duration);
     source.connect(filter).connect(envelope).connect(this.master);
     source.start(start);
     source.stop(start + duration);
 
-    this.tone(capture ? 155 : 190, start, duration + 0.025, 0.055, "sine");
+    this.tone(capture ? 420 : 520, start, duration + 0.012, 0.025, "triangle");
+  }
+
+  private speakGreeting() {
+    if (!this.enabled || !("speechSynthesis" in window)) return;
+    const utterance = new SpeechSynthesisUtterance("お願いします");
+    const japaneseVoices = window.speechSynthesis
+      .getVoices()
+      .filter((voice) => voice.lang.toLowerCase().startsWith("ja"));
+    const preferredNames = /nanami|haruka|ayumi|女性|female/i;
+    utterance.voice =
+      japaneseVoices.find((voice) => preferredNames.test(voice.name)) ??
+      japaneseVoices[0] ??
+      null;
+    utterance.lang = "ja-JP";
+    utterance.rate = 1.02;
+    utterance.pitch = 1.32;
+    utterance.volume = Math.min(0.72, this.volume * 0.9);
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
   }
 
   playStart() {
     const now = this.context?.currentTime;
     if (now === undefined) return;
     // D minor pentatonic: a restrained koto/shakuhachi-like opening phrase.
-    [293.66, 349.23, 440, 523.25, 440, 349.23].forEach((note, index) => {
+    this.speakGreeting();
+    [293.66, 349.23, 440, 349.23].forEach((note, index) => {
       const start = now + index * 0.42;
-      this.tone(note, start, 0.55, 0.038, "triangle");
-      this.tone(note * 2, start + 0.012, 0.16, 0.012, "sine");
+      this.tone(note, start, 0.48, 0.022, "triangle");
+      this.tone(note * 2, start + 0.012, 0.13, 0.007, "sine");
     });
   }
 

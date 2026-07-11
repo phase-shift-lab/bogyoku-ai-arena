@@ -17,6 +17,11 @@ export interface MoveRecord {
 
 export type GameResult =
   | { readonly kind: "checkmate"; readonly winner: "sente" | "gote" }
+  | {
+      readonly kind: "resignation";
+      readonly winner: "sente" | "gote";
+      readonly loser: "sente" | "gote";
+    }
   | { readonly kind: "draw"; readonly reason: "repetition" | "stalemate" };
 
 export type Selection =
@@ -42,6 +47,7 @@ export type ShogiGameAction =
   | { readonly type: "sfen-imported"; readonly sfen: string }
   | { readonly type: "kif-imported"; readonly kif: string }
   | { readonly type: "usi-played"; readonly usi: string }
+  | { readonly type: "resigned"; readonly loser: "sente" | "gote" }
   | { readonly type: "state-restored"; readonly state: ShogiGameState }
   | { readonly type: "reset" };
 
@@ -56,6 +62,11 @@ function readPosition(sfen: string) {
 function messageFor(state: ShogiGameState) {
   if (state.result?.kind === "checkmate") {
     return `${state.result.winner === "sente" ? "先手" : "後手"}の勝ち（詰み）`;
+  }
+  if (state.result?.kind === "resignation") {
+    const loser = state.result.loser === "sente" ? "先手" : "後手";
+    const winner = state.result.winner === "sente" ? "先手" : "後手";
+    return `${state.moves.length}手まで、${loser}の投了（${winner}の勝ち）`;
   }
   if (state.result?.reason === "repetition") return "千日手（同一局面4回）";
   if (state.result?.reason === "stalemate") return "引き分け";
@@ -260,6 +271,19 @@ export function shogiGameReducer(
     }
     case "usi-played":
       return playUsi(state, action.usi);
+    case "resigned": {
+      if (state.result) return state;
+      const winner = action.loser === "sente" ? "gote" : "sente";
+      const resigned = {
+        ...state,
+        selection: undefined,
+        legalDestinations: [],
+        pendingPromotion: undefined,
+        result: { kind: "resignation", winner, loser: action.loser } as const,
+        message: "",
+      };
+      return { ...resigned, message: messageFor(resigned) };
+    }
     case "state-restored":
       return action.state;
     case "reset":

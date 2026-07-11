@@ -63,6 +63,21 @@ describe("shogiGame", () => {
     expect(state.result).toEqual({ kind: "draw", reason: "repetition" });
   });
 
+  it("ends the game when a player resigns", () => {
+    const state = shogiGameReducer(createInitialGameState(), {
+      type: "resigned",
+      loser: "sente",
+    });
+
+    expect(state.result).toEqual({
+      kind: "resignation",
+      winner: "gote",
+      loser: "sente",
+    });
+    expect(state.message).toBe("0手まで、先手の投了（後手の勝ち）");
+    expect(playUsi(state, "7g7f")).toBe(state);
+  });
+
   it("imports and exports SFEN and KIF", () => {
     const afterTwoMoves = playUsi(
       playUsi(createInitialGameState(), "7g7f"),
