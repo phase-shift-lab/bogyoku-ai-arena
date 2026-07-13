@@ -54,6 +54,7 @@ import {
   type StrategyId,
 } from "../strategy/openings/catalog";
 import { appReducer, initialAppState } from "./appReducer";
+import { scheduleAutoReset } from "./autoReset";
 
 const modes: ReadonlyArray<{ id: GameMode; label: string; detail: string }> = [
   { id: "human-vs-ai", label: "人間 vs AI", detail: "棒玉AIと対局" },
@@ -160,7 +161,8 @@ export function App() {
   const senteLevel =
     levels.find((item) => item.id === senteLevelId) ?? levels[1];
   const goteLevel = levels.find((item) => item.id === goteLevelId) ?? levels[1];
-  const visibleStatus = game.result ? "finished" : state.status;
+  const gameFinished = Boolean(game.result) || state.status === "finished";
+  const visibleStatus = gameFinished ? "finished" : state.status;
 
   useEffect(() => {
     gameAudio.configure(soundEnabled, soundVolume / 100);
@@ -458,22 +460,30 @@ export function App() {
     return () => window.clearTimeout(task);
   }, [synchronizeAiTurn]);
 
-  const resetGame = (presetId: PositionPresetId = positionPresetId) => {
-    didInteractRef.current = true;
-    searchGeneration.current += 1;
-    engineRef.current?.stop();
-    dispatch({ type: "game-reset" });
-    setPositionPresetId(presetId);
-    gameDispatch({
-      type: "sfen-imported",
-      sfen: positionPresetById(presetId).sfen,
-    });
-    setVariations([]);
-    setStepMode(false);
-    setRangingRookSides(rollRangingRookSides());
-    setStrategyDiagnostics({ state: "PREPARE", ranked: [], rejected: [] });
-    void indexedDbGameRepository.clear();
-  };
+  const resetGame = useCallback(
+    (presetId: PositionPresetId = positionPresetId) => {
+      didInteractRef.current = true;
+      searchGeneration.current += 1;
+      engineRef.current?.stop();
+      dispatch({ type: "game-reset" });
+      setPositionPresetId(presetId);
+      gameDispatch({
+        type: "sfen-imported",
+        sfen: positionPresetById(presetId).sfen,
+      });
+      setVariations([]);
+      setStepMode(false);
+      setRangingRookSides(rollRangingRookSides());
+      setStrategyDiagnostics({ state: "PREPARE", ranked: [], rejected: [] });
+      void indexedDbGameRepository.clear();
+    },
+    [positionPresetId],
+  );
+
+  useEffect(() => {
+    if (!gameFinished) return undefined;
+    return scheduleAutoReset(() => resetGame());
+  }, [gameFinished, resetGame]);
 
   const startGame = () => {
     didInteractRef.current = true;
