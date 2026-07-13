@@ -11,6 +11,7 @@ import { parseSfen } from "shogiops/sfen";
 import { classifyMoveAudio, gameAudio } from "../audio/gameAudio";
 import { RecordTools } from "../components/RecordTools";
 import { ShogiBoard } from "../components/ShogiBoard";
+import { StrategyPicker } from "../components/StrategyPicker";
 import { VariationTree } from "../components/VariationTree";
 import { YaneuraOuClient } from "../engine/YaneuraOuClient";
 import { getRuntimeCapabilities } from "../engine/runtimeCapabilities";
@@ -50,6 +51,11 @@ import {
   resolveBogyokuPlan,
   type BogyokuState,
 } from "../strategy/bogyoku/stateMachine";
+import {
+  openingCandidates,
+  strategyOptions,
+  type StrategyId,
+} from "../strategy/openings/catalog";
 import { appReducer, initialAppState } from "./appReducer";
 
 const modes: ReadonlyArray<{ id: GameMode; label: string; detail: string }> = [
@@ -99,10 +105,8 @@ export function App() {
   );
   const [levelId, setLevelId] =
     useState<(typeof levels)[number]["id"]>("standard");
-  const [aiStyle, setAiStyle] = useState<"normal" | "bogyoku">("bogyoku");
-  const [senteAiStyle, setSenteAiStyle] = useState<"normal" | "bogyoku">(
-    "normal",
-  );
+  const [aiStyle, setAiStyle] = useState<StrategyId>("bogyoku");
+  const [senteAiStyle, setSenteAiStyle] = useState<StrategyId>("normal");
   const [senteLevelId, setSenteLevelId] =
     useState<(typeof levels)[number]["id"]>("standard");
   const [goteLevelId, setGoteLevelId] =
@@ -153,6 +157,12 @@ export function App() {
     () => scaledProfile(baseProfile, bogyokuIntensity),
     [baseProfile, bogyokuIntensity],
   );
+  const gameTurn = parseSfen("standard", game.sfen, true).unwrap().turn;
+  const activeStrategyId =
+    state.mode === "ai-vs-ai" && gameTurn === "sente" ? senteAiStyle : aiStyle;
+  const activeStrategy =
+    strategyOptions.find((option) => option.id === activeStrategyId) ??
+    strategyOptions[0]!;
   const level = levels.find((item) => item.id === levelId) ?? levels[1];
   const senteLevel =
     levels.find((item) => item.id === senteLevelId) ?? levels[1];
@@ -245,7 +255,7 @@ export function App() {
   const runSearch = useCallback(
     async (
       current: ShogiGameState,
-      style: "normal" | "bogyoku",
+      style: StrategyId,
       moveTimeMs = level.moveTimeMs,
     ): Promise<SearchResult> => {
       const client = engineRef.current;
@@ -254,6 +264,33 @@ export function App() {
       if (style === "normal") {
         setStrategyDiagnostics({ state: "DISABLED", ranked: [], rejected: [] });
         return await client.search(baseRequest);
+      }
+
+      if (style !== "bogyoku") {
+        const candidates = openingCandidates(
+          style,
+          current.sfen,
+          current.moves.map((move) => move.usi),
+        );
+        setStrategyDiagnostics({ state: "DISABLED", ranked: [], rejected: [] });
+        if (candidates.length === 0) return await client.search(baseRequest);
+        const probe = await client.search({
+          ...baseRequest,
+          moveTimeMs: Math.max(180, Math.floor(moveTimeMs * 0.45)),
+        });
+        const result = await client.search({
+          ...baseRequest,
+          searchMoves: candidates,
+        });
+        const baseline = probe.variations[0];
+        const planned = result.variations[0];
+        const withinSafetyLimit =
+          planned?.mate !== undefined
+            ? planned.mate > 0
+            : baseline?.scoreCp === undefined ||
+              planned?.scoreCp === undefined ||
+              planned.scoreCp >= baseline.scoreCp - 220;
+        return withinSafetyLimit ? result : probe;
       }
 
       const probe = await client.search({
@@ -555,33 +592,19 @@ export function App() {
               </button>
             ))}
           </div>
+          <StrategyPicker
+            label={state.mode === "ai-vs-ai" ? "後手AI戦型" : "AI戦型"}
+            value={aiStyle}
+            onChange={setAiStyle}
+          />
+          {state.mode === "ai-vs-ai" ? (
+            <StrategyPicker
+              label="先手AI戦型"
+              value={senteAiStyle}
+              onChange={setSenteAiStyle}
+            />
+          ) : null}
           <div className="settings-grid">
-            <label>
-              {state.mode === "ai-vs-ai" ? "後手AI戦型" : "AI戦型"}
-              <select
-                value={aiStyle}
-                onChange={(event) =>
-                  setAiStyle(event.target.value as "normal" | "bogyoku")
-                }
-              >
-                <option value="bogyoku">棒玉</option>
-                <option value="normal">通常</option>
-              </select>
-            </label>
-            {state.mode === "ai-vs-ai" ? (
-              <label>
-                先手AI戦型
-                <select
-                  value={senteAiStyle}
-                  onChange={(event) =>
-                    setSenteAiStyle(event.target.value as "normal" | "bogyoku")
-                  }
-                >
-                  <option value="bogyoku">棒玉</option>
-                  <option value="normal">通常</option>
-                </select>
-              </label>
-            ) : null}
             <label>
               棒玉プリセット
               <select
@@ -805,7 +828,7 @@ export function App() {
           <div className="game-toolbar">
             <div>
               <span className="label">戦型プロファイル</span>
-              <strong>{profile.openingName}</strong>
+              <strong>{activeStrategy.label}</strong>
             </div>
             <button
               className="toolbar-button"
@@ -897,9 +920,13 @@ export function App() {
           <section>
             <div className="panel-heading">
               <span className="label">STRATEGY</span>
-              <strong>{profile.openingName}</strong>
+              <strong>{activeStrategy.label}</strong>
             </div>
-            <p className="strategy-copy">{profile.description}</p>
+            <p className="strategy-copy">
+              {activeStrategyId === "bogyoku"
+                ? profile.description
+                : activeStrategy.detail}
+            </p>
             <dl className="stat-list">
               <div>
                 <dt>現在段階</dt>

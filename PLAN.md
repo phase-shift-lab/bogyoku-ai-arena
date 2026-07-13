@@ -41,3 +41,11 @@
 - [x] GitHub Pages workflow and cross-origin-isolation service-worker path
 - [x] operator and troubleshooting documentation
 - [ ] publish and verify the actual GitHub Pages URL (operator action; not performed by Codex)
+
+## Phase 6 — Mobile board and opening selection
+
+- [x] make board taps immediate and preserve selection after an invalid destination tap
+- [x] refresh the board, coordinates, and pieces with a compact warm-wood game UI
+- [x] replace the strategy dropdown with horizontally scrollable strategy cards
+- [x] add four side-symmetric surprise-opening guides with evaluation-based fallback
+- [x] enlarge candidate and sound checkboxes for touch operation

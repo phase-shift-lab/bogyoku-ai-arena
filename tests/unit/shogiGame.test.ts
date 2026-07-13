@@ -53,6 +53,27 @@ describe("shogiGame", () => {
     expect(state.moves.at(-1)?.usi).toBe("P*5e");
   });
 
+  it("keeps the selected piece after an invalid destination tap", () => {
+    let state = createInitialGameState();
+    state = shogiGameReducer(state, {
+      type: "square-selected",
+      square: parseSquareName("7g"),
+    });
+    const destinations = state.legalDestinations;
+
+    state = shogiGameReducer(state, {
+      type: "square-selected",
+      square: parseSquareName("5e"),
+    });
+
+    expect(state.selection).toEqual({
+      kind: "board",
+      square: parseSquareName("7g"),
+    });
+    expect(state.legalDestinations).toEqual(destinations);
+    expect(state.message).toBe("移動できるマスを選んでください");
+  });
+
   it("declares repetition after the same position appears four times", () => {
     let state = createInitialGameState("4k4/4g4/9/9/9/9/9/4G4/4K4 b - 1");
     const cycle = ["5i6i", "5a6a", "6i5i", "6a5a"];

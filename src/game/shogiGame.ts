@@ -181,7 +181,14 @@ function selectBoardSquare(
     };
   }
 
-  return { ...state, selection: undefined, legalDestinations: [] };
+  if (selected) {
+    return {
+      ...state,
+      message: "移動できるマスを選んでください",
+    };
+  }
+
+  return state;
 }
 
 function selectHandRole(state: ShogiGameState, role: Role): ShogiGameState {

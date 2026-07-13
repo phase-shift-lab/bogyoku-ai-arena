@@ -26,6 +26,17 @@ const pieceLabels: Partial<Record<Role, string>> = {
 const sideLabels: Record<Color, string> = { sente: "先手", gote: "後手" };
 const files = [8, 7, 6, 5, 4, 3, 2, 1, 0] as const;
 const ranks = [0, 1, 2, 3, 4, 5, 6, 7, 8] as const;
+const rankLabels: Record<string, string> = {
+  a: "一",
+  b: "二",
+  c: "三",
+  d: "四",
+  e: "五",
+  f: "六",
+  g: "七",
+  h: "八",
+  i: "九",
+};
 
 interface Props {
   readonly state: ShogiGameState;
@@ -89,8 +100,12 @@ export function ShogiBoard({
   const pos = parseSfen("standard", state.sfen, true).unwrap();
   const displayRanks = flipped ? [...ranks].reverse() : ranks;
   const displayFiles = flipped ? [...files].reverse() : files;
-  const squares = displayRanks.flatMap((rank) =>
-    displayFiles.map((file) => parseCoordinates(file, rank) as Square),
+  const squares = displayRanks.flatMap((rank, row) =>
+    displayFiles.map((file, column) => ({
+      column,
+      row,
+      square: parseCoordinates(file, rank) as Square,
+    })),
   );
   const lastDestination = pos.lastMoveOrDrop?.to;
 
@@ -104,7 +119,7 @@ export function ShogiBoard({
       />
       <div className="board-shell" aria-label="対局用将棋盤">
         <div className="board" role="grid" aria-rowcount={9} aria-colcount={9}>
-          {squares.map((square) => {
+          {squares.map(({ column, row, square }) => {
             const piece = pos.board.get(square);
             const selected =
               state.selection?.kind === "board" &&
@@ -126,6 +141,16 @@ export function ShogiBoard({
                 role="gridcell"
                 type="button"
               >
+                {row === 0 && (
+                  <span className="board-coordinate board-coordinate-file">
+                    {squareName[0]}
+                  </span>
+                )}
+                {column === 8 && (
+                  <span className="board-coordinate board-coordinate-rank">
+                    {rankLabels[squareName.slice(1)]}
+                  </span>
+                )}
                 {piece && (
                   <span className="piece">
                     {pieceLabels[piece.role] ?? "?"}
