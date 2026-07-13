@@ -16,8 +16,32 @@ test.beforeEach(async ({ page }, testInfo) => {
     testInfo.title.includes("initializes YaneuraOu") ? "/" : "/?engine=off",
   );
 
-  await expect(page.getByRole("heading", { name: /玉で攻める/ })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Bogyoku AI Arena ホーム" }),
+  ).toBeVisible();
   await expect(page.getByLabel("対局用将棋盤")).toBeVisible();
+});
+
+test("wraps strategy choices and uses one surprise intensity control", async ({
+  page,
+}) => {
+  await expect(page.getByText("棒玉プリセット")).toHaveCount(0);
+  await expect(page.getByRole("slider", { name: "奇襲強度" })).toBeVisible();
+
+  const layout = await page
+    .locator(".strategy-card-list")
+    .first()
+    .evaluate((list) => ({
+      clientWidth: list.clientWidth,
+      scrollWidth: list.scrollWidth,
+      rows: new Set(
+        Array.from(list.children).map((child) =>
+          Math.round(child.getBoundingClientRect().top),
+        ),
+      ).size,
+    }));
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 1);
+  expect(layout.rows).toBeGreaterThan(1);
 });
 
 test("shows only the supported game modes", async ({ page }) => {

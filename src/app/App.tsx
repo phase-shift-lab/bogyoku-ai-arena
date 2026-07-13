@@ -35,11 +35,8 @@ import {
 } from "../game/shogiGame";
 import { chooseBogyokuResult } from "../strategy/bogyoku/decision";
 import {
-  bogyokuProfiles,
-  defaultBogyokuProfile,
-  profileById,
-  scaledProfile,
-  type BogyokuProfile,
+  profileForIntensity,
+  surpriseLossLimitCp,
 } from "../strategy/bogyoku/profile";
 import { filterTacticallySafeVariations } from "../strategy/bogyoku/safety";
 import {
@@ -100,9 +97,6 @@ export function App() {
     undefined,
     createInitialGameState,
   );
-  const [profileId, setProfileId] = useState<BogyokuProfile["id"]>(
-    defaultBogyokuProfile.id,
-  );
   const [levelId, setLevelId] =
     useState<(typeof levels)[number]["id"]>("standard");
   const [aiStyle, setAiStyle] = useState<StrategyId>("bogyoku");
@@ -152,10 +146,9 @@ export function App() {
       new URLSearchParams(window.location.search).get("engine") === "off",
     [],
   );
-  const baseProfile = useMemo(() => profileById(profileId), [profileId]);
   const profile = useMemo(
-    () => scaledProfile(baseProfile, bogyokuIntensity),
-    [baseProfile, bogyokuIntensity],
+    () => profileForIntensity(bogyokuIntensity),
+    [bogyokuIntensity],
   );
   const gameTurn = parseSfen("standard", game.sfen, true).unwrap().turn;
   const activeStrategyId =
@@ -289,7 +282,8 @@ export function App() {
             ? planned.mate > 0
             : baseline?.scoreCp === undefined ||
               planned?.scoreCp === undefined ||
-              planned.scoreCp >= baseline.scoreCp - 220;
+              planned.scoreCp >=
+                baseline.scoreCp - surpriseLossLimitCp(bogyokuIntensity);
         return withinSafetyLimit ? result : probe;
       }
 
@@ -393,7 +387,7 @@ export function App() {
         plan.candidates,
       );
     },
-    [level.moveTimeMs, profile, rangingRookSides],
+    [bogyokuIntensity, level.moveTimeMs, profile, rangingRookSides],
   );
 
   const synchronizeAiTurn = useCallback(() => {
@@ -549,7 +543,10 @@ export function App() {
   return (
     <div className="app-shell">
       <main id="top" className="arena">
-        <section className="hero-panel" aria-labelledby="arena-heading">
+        <section
+          className="hero-panel"
+          aria-label="Bogyoku AI Arena 操作パネル"
+        >
           <div className="side-brand-row">
             <a
               className="brand"
@@ -569,13 +566,6 @@ export function App() {
               {activeRuntime === "threaded" ? "Threaded" : "Single"}
             </div>
           </div>
-          <div className="eyebrow">LOCAL-FIRST SHOGI ENGINE</div>
-          <h1 id="arena-heading">
-            玉で攻める。<span>棒玉を磨く。</span>
-          </h1>
-          <p>
-            YaneuraOuを端末内で実行し、棒玉の序盤選好と戦術安全性を組み合わせる対局・解析環境です。
-          </p>
           <div className="mode-list" aria-label="対局モード">
             {modes.map((mode) => (
               <button
@@ -606,24 +596,9 @@ export function App() {
           ) : null}
           <div className="settings-grid">
             <label>
-              棒玉プリセット
-              <select
-                value={profileId}
-                onChange={(event) =>
-                  setProfileId(event.target.value as BogyokuProfile["id"])
-                }
-              >
-                {bogyokuProfiles.map((item) => (
-                  <option value={item.id} key={item.id}>
-                    {item.openingName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              棒玉強度 <output>{bogyokuIntensity}</output>
+              奇襲強度 <output>{bogyokuIntensity}</output>
               <input
-                aria-label="棒玉強度"
+                aria-label="奇襲強度"
                 type="range"
                 min="0"
                 max="100"

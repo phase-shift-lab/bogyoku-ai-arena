@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { chooseBogyokuResult } from "../../src/strategy/bogyoku/decision";
 import {
   defaultBogyokuProfile,
-  scaledProfile,
+  profileForIntensity,
+  surpriseLossLimitCp,
 } from "../../src/strategy/bogyoku/profile";
 import { filterTacticallySafeVariations } from "../../src/strategy/bogyoku/safety";
 import { rankBogyokuMoves } from "../../src/strategy/bogyoku/scoring";
@@ -229,14 +230,15 @@ describe("bogyoku strategy", () => {
   });
 
   it("scales style intensity and scores the corrected king route", () => {
-    const gentle = scaledProfile(defaultBogyokuProfile, 25);
-    const strong = scaledProfile(defaultBogyokuProfile, 100);
+    const gentle = profileForIntensity(25);
+    const strong = profileForIntensity(100);
     expect(strong.weights.kingAdvance).toBeGreaterThan(
       gentle.weights.kingAdvance,
     );
     expect(strong.plannedMoveLossLimitCp).toBeGreaterThan(
       gentle.plannedMoveLossLimitCp,
     );
+    expect(surpriseLossLimitCp(100)).toBeGreaterThan(surpriseLossLimitCp(25));
     const [ranked] = rankBogyokuMoves(
       ["5i4h"],
       4,

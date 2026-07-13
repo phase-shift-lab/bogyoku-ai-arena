@@ -1,6 +1,6 @@
 import { parseSfen } from "shogiops/sfen";
 import type { Color, Role, Square } from "shogiops/types";
-import { makeSquareName, parseCoordinates } from "shogiops/util";
+import { makeSquareName, parseCoordinates, parseUsi } from "shogiops/util";
 import { handRoles } from "shogiops/variant/util";
 
 import type { ShogiGameAction, ShogiGameState } from "../game/shogiGame";
@@ -107,7 +107,16 @@ export function ShogiBoard({
       square: parseCoordinates(file, rank) as Square,
     })),
   );
-  const lastDestination = pos.lastMoveOrDrop?.to;
+  const lastMoveRecord = state.moves.at(-1);
+  const lastMove = lastMoveRecord ? parseUsi(lastMoveRecord.usi) : undefined;
+  const lastOrigin = lastMove && "from" in lastMove ? lastMove.from : undefined;
+  const lastDestination = lastMove?.to;
+  const lastMoveSide = pos.turn === "sente" ? "△" : "▲";
+  const lastMoveText = lastMoveRecord
+    ? `${lastMoveSide}${lastMoveRecord.kif
+        .replace(/^[▲△]/, "")
+        .replace(/\(\d+\)$/, "")}`
+    : "なし";
 
   return (
     <div className="play-area">
@@ -131,7 +140,8 @@ export function ShogiBoard({
                 aria-label={`${squareName}${piece ? ` ${sideLabels[piece.color]}${pieceLabels[piece.role] ?? piece.role}` : " 空き"}`}
                 aria-selected={selected}
                 className="square"
-                data-last={lastDestination === square || undefined}
+                data-last-origin={lastOrigin === square || undefined}
+                data-last-destination={lastDestination === square || undefined}
                 data-legal={legal || undefined}
                 data-side={piece?.color ?? "empty"}
                 data-square={squareName}
@@ -167,6 +177,9 @@ export function ShogiBoard({
         enabled={enabled}
         game={state}
       />
+      <p className="last-move-label" aria-live="polite">
+        直前手：<strong>{lastMoveText}</strong>
+      </p>
       <p className="game-message" aria-live="polite">
         {enabled ? state.message : "「対局を始める」で盤を操作できます"}
       </p>

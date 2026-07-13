@@ -49,3 +49,10 @@
 - [x] replace the strategy dropdown with horizontally scrollable strategy cards
 - [x] add four side-symmetric surprise-opening guides with evaluation-based fallback
 - [x] enlarge candidate and sound checkboxes for touch operation
+
+## Phase 7 — Compact strategy controls and move trace
+
+- [x] remove the hero catchphrase and duplicate Bogyoku preset
+- [x] render strategy choices as compact wrapped cards and unify tuning under surprise intensity
+- [x] tune Bogyoku and surprise-opening evaluation limits from that intensity
+- [x] highlight the previous origin/destination and show the latest KIF move

@@ -3,7 +3,7 @@ export type BogyokuFeature =
 export type BogyokuWeights = Readonly<Record<BogyokuFeature, number>>;
 
 export interface BogyokuProfile {
-  readonly id: "practical" | "forced" | "win-rate";
+  readonly id: "intensity";
   readonly openingName: string;
   readonly targetPhase: "opening";
   readonly description: string;
@@ -13,84 +13,34 @@ export interface BogyokuProfile {
   readonly weights: BogyokuWeights;
 }
 
-export const bogyokuProfiles: readonly BogyokuProfile[] = [
-  {
-    id: "practical",
-    openingName: "棒玉・実戦型",
-    targetPhase: "opening",
-    description: "玉を前へ運び、飛車・銀・歩との連携と勝ちやすさを両立します。",
-    openingPlyLimit: 30,
-    tacticalLossLimitCp: 110,
-    plannedMoveLossLimitCp: 350,
-    weights: {
-      kingAdvance: 30,
-      rightPressure: 24,
-      rookSupport: 18,
-      silverAdvance: 20,
-      tempo: 8,
-    },
-  },
-  {
-    id: "forced",
-    openingName: "棒玉・強制型",
-    targetPhase: "opening",
-    description: "許容範囲内で棒玉らしい進行を強く優先する実験向け設定です。",
-    openingPlyLimit: 36,
-    tacticalLossLimitCp: 170,
-    plannedMoveLossLimitCp: 500,
-    weights: {
-      kingAdvance: 42,
-      rightPressure: 36,
-      rookSupport: 24,
-      silverAdvance: 32,
-      tempo: 12,
-    },
-  },
-  {
-    id: "win-rate",
-    openingName: "棒玉・勝率重視",
-    targetPhase: "opening",
-    description: "戦術的な安全性を優先し、危険なら通常探索へ戻します。",
-    openingPlyLimit: 24,
-    tacticalLossLimitCp: 70,
-    plannedMoveLossLimitCp: 200,
-    weights: {
-      kingAdvance: 16,
-      rightPressure: 16,
-      rookSupport: 20,
-      silverAdvance: 14,
-      tempo: 6,
-    },
-  },
-] as const;
-
-export const defaultBogyokuProfile: BogyokuProfile = bogyokuProfiles[0]!;
-
-export function profileById(id: BogyokuProfile["id"]): BogyokuProfile {
-  return (
-    bogyokuProfiles.find((profile) => profile.id === id) ??
-    defaultBogyokuProfile
-  );
+function normalizeIntensity(intensity: number): number {
+  return Math.max(0, Math.min(100, intensity)) / 100;
 }
 
-export function scaledProfile(
-  profile: BogyokuProfile,
-  intensity: number,
-): BogyokuProfile {
-  const normalized = Math.max(0, Math.min(100, intensity)) / 50;
+export function profileForIntensity(intensity: number): BogyokuProfile {
+  const normalized = normalizeIntensity(intensity);
   return {
-    ...profile,
-    tacticalLossLimitCp: Math.round(
-      profile.tacticalLossLimitCp * (0.65 + normalized * 0.35),
-    ),
-    plannedMoveLossLimitCp: Math.round(
-      profile.plannedMoveLossLimitCp * (0.65 + normalized * 0.35),
-    ),
-    weights: Object.fromEntries(
-      Object.entries(profile.weights).map(([feature, weight]) => [
-        feature,
-        Math.round(weight * normalized),
-      ]),
-    ) as BogyokuWeights,
+    id: "intensity",
+    openingName: "棒玉",
+    targetPhase: "opening",
+    description:
+      "奇襲強度に応じて玉の進出を優先し、評価上の決定的な悪化は避けます。",
+    openingPlyLimit: Math.round(24 + 12 * normalized),
+    tacticalLossLimitCp: Math.round(50 + 120 * normalized),
+    plannedMoveLossLimitCp: Math.round(100 + 500 * normalized),
+    weights: {
+      kingAdvance: Math.round(60 * normalized),
+      rightPressure: Math.round(48 * normalized),
+      rookSupport: Math.round(36 * normalized),
+      silverAdvance: Math.round(40 * normalized),
+      tempo: Math.round(16 * normalized),
+    },
   };
 }
+
+export function surpriseLossLimitCp(intensity: number): number {
+  const normalized = normalizeIntensity(intensity);
+  return normalized === 0 ? 0 : Math.round(60 + 320 * normalized);
+}
+
+export const defaultBogyokuProfile: BogyokuProfile = profileForIntensity(50);
