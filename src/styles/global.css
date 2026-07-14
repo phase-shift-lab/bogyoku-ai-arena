@@ -1067,7 +1067,7 @@ a:focus-visible {
   .strategy-mode-button {
     min-height: 30px;
     padding: 3px 5px;
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .strategy-card-list {
@@ -1087,8 +1087,8 @@ a:focus-visible {
 
   .strategy-card strong {
     margin: 0;
-    font-size: 11px;
-    line-height: 1.15;
+    font-size: 13px;
+    line-height: 1.2;
   }
 
   .arena {
