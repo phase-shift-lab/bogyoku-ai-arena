@@ -285,6 +285,59 @@ a:focus-visible {
   font-size: 12px;
 }
 
+.strategy-mode-switch,
+.ai-side-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.strategy-mode-button,
+.ai-side-tabs button {
+  min-width: 0;
+  min-height: 34px;
+  padding: 5px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: #cbbca3;
+  background: #17120d;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.strategy-mode-button[aria-pressed="true"],
+.ai-side-tabs button[aria-selected="true"] {
+  border-color: #e0b660;
+  color: #fff4dc;
+  background: linear-gradient(135deg, #3b2114, #24150d);
+  box-shadow: inset 0 0 0 1px rgb(224 182 96 / 25%);
+}
+
+.strategy-mode-note,
+.ai-strategy-summary {
+  margin: 7px 0 0;
+  color: #b8a98e;
+  font-size: 11px;
+}
+
+.ai-strategy-selector {
+  min-width: 0;
+}
+
+.ai-side-tabs {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
+.strategy-picker:disabled {
+  opacity: 0.68;
+}
+
+.strategy-picker:disabled button {
+  cursor: not-allowed;
+}
+
 .strategy-card-list {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -331,7 +384,7 @@ a:focus-visible {
   font-size: 14px;
 }
 
-.strategy-card[aria-checked="true"] {
+.strategy-card[aria-pressed="true"] {
   border-color: #e0b660;
   color: #fff4dc;
   background: linear-gradient(135deg, #3b2114, #24150d);
@@ -959,6 +1012,10 @@ a:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .strategy-card span {
+    display: none;
+  }
+
   .mode-card {
     flex-direction: column;
     gap: 5px;
@@ -999,6 +1056,41 @@ a:focus-visible {
 }
 
 @media (max-height: 950px) and (min-width: 1060px) {
+  .strategy-picker {
+    gap: 4px;
+  }
+
+  .strategy-mode-switch {
+    gap: 4px;
+  }
+
+  .strategy-mode-button {
+    min-height: 30px;
+    padding: 3px 5px;
+    font-size: 10px;
+  }
+
+  .strategy-card-list {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .strategy-card {
+    min-height: 34px;
+    padding: 4px 5px;
+  }
+
+  .strategy-card small,
+  .strategy-card span {
+    display: none;
+  }
+
+  .strategy-card strong {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.15;
+  }
+
   .arena {
     padding-block: 3px;
   }

@@ -56,3 +56,11 @@
 - [x] render strategy choices as compact wrapped cards and unify tuning under surprise intensity
 - [x] tune Bogyoku and surprise-opening evaluation limits from that intensity
 - [x] highlight the previous origin/destination and show the latest KIF move
+
+## Phase 8 — Expanded surprise strategy selection
+
+- [x] expand the catalog to fifteen strategies including minor surprise openings
+- [x] add normal, specified surprise, and automatic surprise selection modes
+- [x] support side-symmetric, branch-aware opening guides with legal-move fallback
+- [x] lock automatic selections per game and provide separate AI-vs-AI side settings
+- [x] keep strategy selection compact and touch-friendly on mobile

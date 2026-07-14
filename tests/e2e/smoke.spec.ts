@@ -22,11 +22,21 @@ test.beforeEach(async ({ page }, testInfo) => {
   await expect(page.getByLabel("対局用将棋盤")).toBeVisible();
 });
 
-test("wraps strategy choices and uses one surprise intensity control", async ({
+test("switches between normal, specified, and automatic strategy modes", async ({
   page,
 }) => {
   await expect(page.getByText("棒玉プリセット")).toHaveCount(0);
   await expect(page.getByRole("slider", { name: "奇襲強度" })).toBeVisible();
+
+  const modeSwitch = page.getByRole("group", { name: "戦法選択モード" });
+  await expect(modeSwitch.getByRole("button")).toHaveCount(3);
+  await expect(
+    modeSwitch.getByRole("button", { name: "奇襲指定" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".strategy-card-list").first()).toBeVisible();
+  await expect(
+    page.locator(".strategy-card-list").first().getByRole("button"),
+  ).toHaveCount(15);
 
   const layout = await page
     .locator(".strategy-card-list")
@@ -42,6 +52,14 @@ test("wraps strategy choices and uses one surprise intensity control", async ({
     }));
   expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 1);
   expect(layout.rows).toBeGreaterThan(1);
+
+  await modeSwitch.getByRole("button", { name: "通常" }).click();
+  await expect(page.locator(".strategy-card-list")).toHaveCount(0);
+  await expect(page.getByText("評価値を優先して指します")).toBeVisible();
+
+  await modeSwitch.getByRole("button", { name: "奇襲おまかせ" }).click();
+  await expect(page.locator(".strategy-card-list")).toHaveCount(0);
+  await expect(page.getByText(/対局開始時に奇襲戦法を1つ選び/)).toBeVisible();
 });
 
 test("shows only the supported game modes", async ({ page }) => {

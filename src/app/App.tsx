@@ -49,9 +49,11 @@ import {
   type BogyokuState,
 } from "../strategy/bogyoku/stateMachine";
 import {
+  chooseRandomSurpriseStrategy,
   openingCandidates,
-  strategyOptions,
+  strategyOption,
   type StrategyId,
+  type StrategySelectionMode,
 } from "../strategy/openings/catalog";
 import { appReducer, initialAppState } from "./appReducer";
 import { scheduleAutoReset } from "./autoReset";
@@ -91,6 +93,28 @@ function rollRangingRookSides() {
   } as const;
 }
 
+function resolveConfiguredStrategy(
+  mode: StrategySelectionMode,
+  specified: StrategyId,
+  intensity: number,
+): StrategyId {
+  if (mode === "normal") return "normal";
+  if (mode === "specified")
+    return specified === "normal" ? "bogyoku" : specified;
+  return chooseRandomSurpriseStrategy(intensity);
+}
+
+function configuredStrategyLabel(
+  mode: StrategySelectionMode,
+  specified: StrategyId,
+  resolved: StrategyId | null,
+) {
+  if (resolved) return strategyOption(resolved)?.label ?? "通常";
+  if (mode === "normal") return "通常";
+  if (mode === "auto") return "奇襲おまかせ";
+  return strategyOption(specified)?.label ?? "棒玉";
+}
+
 export function App() {
   const [state, dispatch] = useReducer(appReducer, initialAppState);
   const [game, gameDispatch] = useReducer(
@@ -102,6 +126,16 @@ export function App() {
     useState<(typeof levels)[number]["id"]>("standard");
   const [aiStyle, setAiStyle] = useState<StrategyId>("bogyoku");
   const [senteAiStyle, setSenteAiStyle] = useState<StrategyId>("normal");
+  const [aiStrategyMode, setAiStrategyMode] =
+    useState<StrategySelectionMode>("specified");
+  const [senteAiStrategyMode, setSenteAiStrategyMode] =
+    useState<StrategySelectionMode>("normal");
+  const [resolvedAiStyle, setResolvedAiStyle] = useState<StrategyId | null>(
+    null,
+  );
+  const [resolvedSenteAiStyle, setResolvedSenteAiStyle] =
+    useState<StrategyId | null>(null);
+  const [aiStrategyTab, setAiStrategyTab] = useState<"sente" | "gote">("gote");
   const [senteLevelId, setSenteLevelId] =
     useState<(typeof levels)[number]["id"]>("standard");
   const [goteLevelId, setGoteLevelId] =
@@ -152,11 +186,17 @@ export function App() {
     [bogyokuIntensity],
   );
   const gameTurn = parseSfen("standard", game.sfen, true).unwrap().turn;
+  const effectiveAiStyle =
+    resolvedAiStyle ?? (aiStrategyMode === "specified" ? aiStyle : "normal");
+  const effectiveSenteAiStyle =
+    resolvedSenteAiStyle ??
+    (senteAiStrategyMode === "specified" ? senteAiStyle : "normal");
   const activeStrategyId =
-    state.mode === "ai-vs-ai" && gameTurn === "sente" ? senteAiStyle : aiStyle;
+    state.mode === "ai-vs-ai" && gameTurn === "sente"
+      ? effectiveSenteAiStyle
+      : effectiveAiStyle;
   const activeStrategy =
-    strategyOptions.find((option) => option.id === activeStrategyId) ??
-    strategyOptions[0]!;
+    strategyOption(activeStrategyId) ?? strategyOption("normal")!;
   const level = levels.find((item) => item.id === levelId) ?? levels[1];
   const senteLevel =
     levels.find((item) => item.id === senteLevelId) ?? levels[1];
@@ -408,8 +448,8 @@ export function App() {
     setEngineMessage("探索中…");
     const style =
       state.mode === "ai-vs-ai" && position.turn === "sente"
-        ? senteAiStyle
-        : aiStyle;
+        ? effectiveSenteAiStyle
+        : effectiveAiStyle;
     const moveTimeMs =
       state.mode === "ai-vs-ai"
         ? position.turn === "sente"
@@ -442,13 +482,13 @@ export function App() {
         );
       });
   }, [
-    aiStyle,
+    effectiveAiStyle,
+    effectiveSenteAiStyle,
     game,
     goteLevel.moveTimeMs,
     level.moveTimeMs,
     resolvedHumanSide,
     runSearch,
-    senteAiStyle,
     senteLevel.moveTimeMs,
     state.mode,
     state.status,
@@ -474,6 +514,8 @@ export function App() {
       setVariations([]);
       setStepMode(false);
       setRangingRookSides(rollRangingRookSides());
+      setResolvedAiStyle(null);
+      setResolvedSenteAiStyle(null);
       setStrategyDiagnostics({ state: "PREPARE", ranked: [], rejected: [] });
       void indexedDbGameRepository.clear();
     },
@@ -500,6 +542,18 @@ export function App() {
       setResolvedHumanSide(side);
       setBoardFlipped(side === "gote");
     }
+    if (state.status !== "paused") {
+      setResolvedAiStyle(
+        resolveConfiguredStrategy(aiStrategyMode, aiStyle, bogyokuIntensity),
+      );
+      setResolvedSenteAiStyle(
+        resolveConfiguredStrategy(
+          senteAiStrategyMode,
+          senteAiStyle,
+          bogyokuIntensity,
+        ),
+      );
+    }
     dispatch({ type: "game-started" });
   };
 
@@ -520,19 +574,28 @@ export function App() {
   const swapAiSidesAndRestart = () => {
     void gameAudio.unlock().then(() => gameAudio.playStart());
     const previousStyle = senteAiStyle;
+    const previousMode = senteAiStrategyMode;
     const previousLevel = senteLevelId;
     setSenteAiStyle(aiStyle);
     setAiStyle(previousStyle);
+    setSenteAiStrategyMode(aiStrategyMode);
+    setAiStrategyMode(previousMode);
     setSenteLevelId(goteLevelId);
     setGoteLevelId(previousLevel);
     resetGame();
+    setResolvedSenteAiStyle(
+      resolveConfiguredStrategy(aiStrategyMode, aiStyle, bogyokuIntensity),
+    );
+    setResolvedAiStyle(
+      resolveConfiguredStrategy(previousMode, previousStyle, bogyokuIntensity),
+    );
     queueMicrotask(() => dispatch({ type: "game-started" }));
   };
 
   const analyze = async () => {
     dispatch({ type: "engine-thinking" });
     try {
-      const result = await runSearch(game, aiStyle);
+      const result = await runSearch(game, effectiveAiStyle);
       setVariations(result.variations);
       setEngineMessage(`推奨手 ${result.bestmove}`);
       dispatch({ type: "engine-ready" });
@@ -549,6 +612,23 @@ export function App() {
       (state.mode === "human-vs-ai" &&
         parseSfen("standard", game.sfen, true).unwrap().turn ===
           resolvedHumanSide));
+  const strategyLocked =
+    state.status === "playing" ||
+    state.status === "thinking" ||
+    state.status === "paused";
+
+  const updateAiStrategyMode = (mode: StrategySelectionMode) => {
+    setAiStrategyMode(mode);
+    setResolvedAiStyle(null);
+    if (mode === "specified" && aiStyle === "normal") setAiStyle("bogyoku");
+  };
+
+  const updateSenteAiStrategyMode = (mode: StrategySelectionMode) => {
+    setSenteAiStrategyMode(mode);
+    setResolvedSenteAiStyle(null);
+    if (mode === "specified" && senteAiStyle === "normal")
+      setSenteAiStyle("bogyoku");
+  };
 
   return (
     <div className="app-shell">
@@ -592,18 +672,87 @@ export function App() {
               </button>
             ))}
           </div>
-          <StrategyPicker
-            label={state.mode === "ai-vs-ai" ? "後手AI戦型" : "AI戦型"}
-            value={aiStyle}
-            onChange={setAiStyle}
-          />
           {state.mode === "ai-vs-ai" ? (
+            <div className="ai-strategy-selector">
+              <div
+                aria-label="AI戦型の設定対象"
+                className="ai-side-tabs"
+                role="tablist"
+              >
+                <button
+                  aria-selected={aiStrategyTab === "sente"}
+                  onClick={() => setAiStrategyTab("sente")}
+                  role="tab"
+                  type="button"
+                >
+                  先手AI
+                </button>
+                <button
+                  aria-selected={aiStrategyTab === "gote"}
+                  onClick={() => setAiStrategyTab("gote")}
+                  role="tab"
+                  type="button"
+                >
+                  後手AI
+                </button>
+              </div>
+              {aiStrategyTab === "sente" ? (
+                <StrategyPicker
+                  disabled={strategyLocked}
+                  label="先手AI戦型"
+                  mode={senteAiStrategyMode}
+                  onChange={(style) => {
+                    setSenteAiStyle(style);
+                    setResolvedSenteAiStyle(null);
+                  }}
+                  onModeChange={updateSenteAiStrategyMode}
+                  resolvedValue={resolvedSenteAiStyle}
+                  value={senteAiStyle}
+                />
+              ) : (
+                <StrategyPicker
+                  disabled={strategyLocked}
+                  label="後手AI戦型"
+                  mode={aiStrategyMode}
+                  onChange={(style) => {
+                    setAiStyle(style);
+                    setResolvedAiStyle(null);
+                  }}
+                  onModeChange={updateAiStrategyMode}
+                  resolvedValue={resolvedAiStyle}
+                  value={aiStyle}
+                />
+              )}
+              <p className="ai-strategy-summary">
+                先手：
+                {configuredStrategyLabel(
+                  senteAiStrategyMode,
+                  senteAiStyle,
+                  resolvedSenteAiStyle,
+                )}
+                <span aria-hidden="true"> / </span>
+                後手：
+                {configuredStrategyLabel(
+                  aiStrategyMode,
+                  aiStyle,
+                  resolvedAiStyle,
+                )}
+              </p>
+            </div>
+          ) : (
             <StrategyPicker
-              label="先手AI戦型"
-              value={senteAiStyle}
-              onChange={setSenteAiStyle}
+              disabled={strategyLocked}
+              label="AI戦型"
+              mode={aiStrategyMode}
+              onChange={(style) => {
+                setAiStyle(style);
+                setResolvedAiStyle(null);
+              }}
+              onModeChange={updateAiStrategyMode}
+              resolvedValue={resolvedAiStyle}
+              value={aiStyle}
             />
-          ) : null}
+          )}
           <div className="settings-grid">
             <label>
               奇襲強度 <output>{bogyokuIntensity}</output>
