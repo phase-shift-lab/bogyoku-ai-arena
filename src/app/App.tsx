@@ -65,9 +65,11 @@ const modes: ReadonlyArray<{ id: GameMode; label: string; detail: string }> = [
 ];
 
 const levels = [
+  { id: "very-quick", label: "最速", moveTimeMs: 150 },
   { id: "quick", label: "速い", moveTimeMs: 300 },
   { id: "standard", label: "標準", moveTimeMs: 900 },
   { id: "deep", label: "深い", moveTimeMs: 2500 },
+  { id: "very-deep", label: "最深", moveTimeMs: 5000 },
 ] as const;
 
 const statusLabels = {
@@ -197,10 +199,10 @@ export function App() {
       : effectiveAiStyle;
   const activeStrategy =
     strategyOption(activeStrategyId) ?? strategyOption("normal")!;
-  const level = levels.find((item) => item.id === levelId) ?? levels[1];
+  const level = levels.find((item) => item.id === levelId) ?? levels[2];
   const senteLevel =
-    levels.find((item) => item.id === senteLevelId) ?? levels[1];
-  const goteLevel = levels.find((item) => item.id === goteLevelId) ?? levels[1];
+    levels.find((item) => item.id === senteLevelId) ?? levels[2];
+  const goteLevel = levels.find((item) => item.id === goteLevelId) ?? levels[2];
   const gameFinished = Boolean(game.result) || state.status === "finished";
   const visibleStatus = gameFinished ? "finished" : state.status;
 

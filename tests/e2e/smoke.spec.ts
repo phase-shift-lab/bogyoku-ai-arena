@@ -26,6 +26,7 @@ test("switches between normal, specified, and automatic strategy modes", async (
   page,
 }) => {
   await expect(page.getByText("棒玉プリセット")).toHaveCount(0);
+  await expect(page.getByLabel("思考レベル").locator("option")).toHaveCount(5);
   await expect(page.getByRole("slider", { name: "奇襲強度" })).toBeVisible();
 
   const modeSwitch = page.getByRole("group", { name: "戦法選択モード" });
@@ -58,7 +59,7 @@ test("switches between normal, specified, and automatic strategy modes", async (
   await expect(
     page.locator(".strategy-card-list").first().getByRole("button"),
   ).toHaveCount(15);
-  await expect(page.getByText("評価値を優先して指します")).toBeVisible();
+  await expect(page.getByText("評価値を優先して指します")).toHaveCount(0);
 
   const oniKoroshi = page
     .locator(".strategy-card-list")
@@ -72,7 +73,7 @@ test("switches between normal, specified, and automatic strategy modes", async (
 
   await modeSwitch.getByRole("button", { name: "奇襲おまかせ" }).click();
   await expect(page.locator(".strategy-card-list").first()).toBeVisible();
-  await expect(page.getByText(/対局開始時に奇襲戦法を1つ選び/)).toBeVisible();
+  await expect(page.getByText(/対局開始時に奇襲戦法を1つ選び/)).toHaveCount(0);
 });
 
 test("shows only the supported game modes", async ({ page }) => {

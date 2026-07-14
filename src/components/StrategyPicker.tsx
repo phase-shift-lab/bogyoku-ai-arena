@@ -1,5 +1,4 @@
 import {
-  strategyOption,
   surpriseStrategyOptions,
   type StrategyId,
   type StrategySelectionMode,
@@ -33,7 +32,6 @@ export function StrategyPicker({
   onChange,
   onModeChange,
 }: StrategyPickerProps) {
-  const resolved = resolvedValue ? strategyOption(resolvedValue) : undefined;
   const activeStrategy =
     mode === "specified" ? value : mode === "auto" ? resolvedValue : null;
 
@@ -57,16 +55,6 @@ export function StrategyPicker({
           </button>
         ))}
       </div>
-
-      {mode !== "specified" && (
-        <p className="strategy-mode-note" aria-live="polite">
-          {mode === "normal"
-            ? "評価値を優先して指します"
-            : resolved
-              ? `今回の奇襲：${resolved.label}`
-              : "対局開始時に奇襲戦法を1つ選びます"}
-        </p>
-      )}
 
       <div className="strategy-card-list" role="group" aria-label={label}>
         {surpriseStrategyOptions.map((option) => (
