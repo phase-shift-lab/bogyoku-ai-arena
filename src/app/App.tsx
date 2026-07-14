@@ -568,7 +568,6 @@ export function App() {
     engineRef.current?.stop();
     gameDispatch({ type: "resigned", loser });
     dispatch({ type: "game-finished" });
-    gameAudio.playFinish();
   };
 
   const swapAiSidesAndRestart = () => {
