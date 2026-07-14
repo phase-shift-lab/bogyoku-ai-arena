@@ -34,6 +34,8 @@ export function StrategyPicker({
   onModeChange,
 }: StrategyPickerProps) {
   const resolved = resolvedValue ? strategyOption(resolvedValue) : undefined;
+  const activeStrategy =
+    mode === "specified" ? value : mode === "auto" ? resolvedValue : null;
 
   return (
     <fieldset className="strategy-picker" disabled={disabled}>
@@ -56,24 +58,7 @@ export function StrategyPicker({
         ))}
       </div>
 
-      {mode === "specified" ? (
-        <div className="strategy-card-list" role="group" aria-label={label}>
-          {surpriseStrategyOptions.map((option) => (
-            <button
-              aria-pressed={value === option.id}
-              className="strategy-card"
-              data-category={option.category}
-              key={option.id}
-              onClick={() => onChange(option.id)}
-              type="button"
-            >
-              <small>{option.category}</small>
-              <strong>{option.label}</strong>
-              <span>{option.detail}</span>
-            </button>
-          ))}
-        </div>
-      ) : (
+      {mode !== "specified" && (
         <p className="strategy-mode-note" aria-live="polite">
           {mode === "normal"
             ? "評価値を優先して指します"
@@ -82,6 +67,27 @@ export function StrategyPicker({
               : "対局開始時に奇襲戦法を1つ選びます"}
         </p>
       )}
+
+      <div className="strategy-card-list" role="group" aria-label={label}>
+        {surpriseStrategyOptions.map((option) => (
+          <button
+            aria-pressed={activeStrategy === option.id}
+            className="strategy-card"
+            data-category={option.category}
+            data-strategy-id={option.id}
+            key={option.id}
+            onClick={() => {
+              if (mode !== "specified") onModeChange("specified");
+              onChange(option.id);
+            }}
+            type="button"
+          >
+            <small>{option.category}</small>
+            <strong>{option.label}</strong>
+            <span>{option.detail}</span>
+          </button>
+        ))}
+      </div>
     </fieldset>
   );
 }

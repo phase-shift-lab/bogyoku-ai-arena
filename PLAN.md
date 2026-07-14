@@ -64,3 +64,11 @@
 - [x] support side-symmetric, branch-aware opening guides with legal-move fallback
 - [x] lock automatic selections per game and provide separate AI-vs-AI side settings
 - [x] keep strategy selection compact and touch-friendly on mobile
+
+## Phase 9 — Persistent strategy palette and opening guides
+
+- [x] keep all surprise strategy cards visible in normal, specified, and automatic modes
+- [x] switch to specified mode when a visible strategy card is selected
+- [x] add a basic sequence and ideal formation for all fourteen non-Bogyoku surprises
+- [x] resume from a legal setup move after deviations, with side-symmetric mirroring
+- [x] preserve legality checks, evaluation limits, and unrestricted-engine fallback

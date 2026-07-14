@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createInitialGameState, playUsi } from "../../src/game/shogiGame";
 import {
   chooseRandomSurpriseStrategy,
+  openingGuides,
   openingCandidates,
   strategyOptions,
   surpriseStrategyOptions,
@@ -15,6 +16,7 @@ describe("openingCandidates", () => {
     expect(openingCandidates("oni-koroshi", game.sfen, [])).toEqual(["7g7f"]);
     expect(openingCandidates("haya-ishida", game.sfen, [])).toEqual(["7g7f"]);
     expect(openingCandidates("edge-bishop-nakabisha", game.sfen, [])).toEqual([
+      "5g5f",
       "9g9f",
     ]);
   });
@@ -27,13 +29,13 @@ describe("openingCandidates", () => {
     ]);
   });
 
-  it("stops forcing an opening after that side diverges", () => {
+  it("resumes the nearest legal setup move after that side diverges", () => {
     let game = playUsi(createInitialGameState(), "2g2f");
     game = playUsi(game, "3c3d");
 
     expect(
       openingCandidates("oni-koroshi", game.sfen, ["2g2f", "3c3d"]),
-    ).toEqual([]);
+    ).toEqual(["7g7f"]);
   });
 
   it("keeps alternate move orders for branch-aware openings", () => {
@@ -60,6 +62,15 @@ describe("openingCandidates", () => {
         "通常",
       ]),
     );
+  });
+
+  it("defines a basic line and ideal formation for every guided surprise", () => {
+    expect(Object.keys(openingGuides)).toHaveLength(14);
+    for (const guide of Object.values(openingGuides)) {
+      expect(guide.idealForm.length).toBeGreaterThan(8);
+      expect(guide.lines.length).toBeGreaterThan(0);
+      expect(guide.lines.every((line) => line.length > 0)).toBe(true);
+    }
   });
 
   it("chooses only surprise strategies in auto mode", () => {

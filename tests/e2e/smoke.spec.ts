@@ -54,11 +54,24 @@ test("switches between normal, specified, and automatic strategy modes", async (
   expect(layout.rows).toBeGreaterThan(1);
 
   await modeSwitch.getByRole("button", { name: "通常" }).click();
-  await expect(page.locator(".strategy-card-list")).toHaveCount(0);
+  await expect(page.locator(".strategy-card-list").first()).toBeVisible();
+  await expect(
+    page.locator(".strategy-card-list").first().getByRole("button"),
+  ).toHaveCount(15);
   await expect(page.getByText("評価値を優先して指します")).toBeVisible();
 
+  const oniKoroshi = page
+    .locator(".strategy-card-list")
+    .first()
+    .locator('[data-strategy-id="oni-koroshi"]');
+  await oniKoroshi.click();
+  await expect(
+    modeSwitch.getByRole("button", { name: "奇襲指定" }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await expect(oniKoroshi).toHaveAttribute("aria-pressed", "true");
+
   await modeSwitch.getByRole("button", { name: "奇襲おまかせ" }).click();
-  await expect(page.locator(".strategy-card-list")).toHaveCount(0);
+  await expect(page.locator(".strategy-card-list").first()).toBeVisible();
   await expect(page.getByText(/対局開始時に奇襲戦法を1つ選び/)).toBeVisible();
 });
 
