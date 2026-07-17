@@ -1,4 +1,5 @@
 import {
+  type ChangeEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -50,11 +51,24 @@ import {
 } from "../strategy/bogyoku/stateMachine";
 import {
   chooseRandomSurpriseStrategy,
-  openingCandidates,
+  openingCandidateDetails,
   strategyOption,
+  type OpeningCandidate,
   type StrategyId,
   type StrategySelectionMode,
 } from "../strategy/openings/catalog";
+import {
+  createInitialLearningState,
+  learningBranchMultiplier,
+  learningStrategyMultiplier,
+  parseLearningState,
+  recordLearningGame,
+  setLearningEnabled,
+  type LearningObservation,
+  type LearningSide,
+  type LearningState,
+} from "../strategy/learning/model";
+import { learningRepository } from "../strategy/learning/repository";
 import { appReducer, initialAppState } from "./appReducer";
 import { scheduleAutoReset } from "./autoReset";
 
@@ -82,6 +96,10 @@ const statusLabels = {
   error: "エラー",
 } as const;
 
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
 interface StrategyDiagnostics {
   readonly state: BogyokuState;
   readonly ranked: readonly RankedBogyokuMove[];
@@ -99,11 +117,34 @@ function resolveConfiguredStrategy(
   mode: StrategySelectionMode,
   specified: StrategyId,
   intensity: number,
+  side: LearningSide,
+  learning: LearningState,
 ): StrategyId {
   if (mode === "normal") return "normal";
   if (mode === "specified")
     return specified === "normal" ? "bogyoku" : specified;
-  return chooseRandomSurpriseStrategy(intensity);
+  return chooseRandomSurpriseStrategy(
+    intensity,
+    Math.random,
+    (strategy) => learningStrategyMultiplier(learning, strategy, side),
+  );
+}
+
+function chooseWeightedOpeningCandidate(
+  candidates: readonly OpeningCandidate[],
+  weightFor: (candidate: OpeningCandidate) => number,
+) {
+  if (candidates.length === 0) return undefined;
+  const weighted = candidates.map((candidate) => ({
+    candidate,
+    weight: Math.max(0.05, candidate.baseWeight * weightFor(candidate)),
+  }));
+  let cursor = Math.random() * weighted.reduce((sum, item) => sum + item.weight, 0);
+  for (const item of weighted) {
+    cursor -= item.weight;
+    if (cursor <= 0) return item.candidate;
+  }
+  return weighted.at(-1)?.candidate;
 }
 
 function configuredStrategyLabel(
@@ -172,10 +213,16 @@ export function App() {
       ranked: [],
       rejected: [],
     });
+  const [learningState, setLearningState] = useState<LearningState>(
+    createInitialLearningState,
+  );
+  const [learningLoaded, setLearningLoaded] = useState(false);
   const engineRef = useRef<YaneuraOuClient | undefined>(undefined);
   const searchGeneration = useRef(0);
   const didInteractRef = useRef(false);
   const previousGameRef = useRef(game);
+  const learningObservationsRef = useRef<LearningObservation[]>([]);
+  const learningImportRef = useRef<HTMLInputElement>(null);
   const runtime = useMemo(() => getRuntimeCapabilities(), []);
   const engineAutostartDisabled = useMemo(
     () =>
@@ -289,11 +336,74 @@ export function App() {
     void indexedDbGameRepository.save(serializeGame(game));
   }, [game]);
 
+  useEffect(() => {
+    let alive = true;
+    void learningRepository
+      .load()
+      .then((stored) => {
+        if (alive && stored) setLearningState(stored);
+      })
+      .catch((error: unknown) => {
+        if (alive && !isAbortError(error)) {
+          console.warn("端末内学習データを読み込めませんでした", error);
+        }
+      })
+      .finally(() => {
+        if (alive) setLearningLoaded(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!learningLoaded) return;
+    void learningRepository.save(learningState).catch((error: unknown) => {
+      if (!isAbortError(error)) {
+        console.warn("端末内学習データを保存できませんでした", error);
+      }
+    });
+  }, [learningLoaded, learningState]);
+
+  useEffect(() => {
+    if (!game.result) return;
+    const observations = learningObservationsRef.current;
+    learningObservationsRef.current = [];
+    if (observations.length === 0) return;
+    const unique = [
+      ...new Map(
+        observations.map((observation) => [
+          `${observation.strategy}|${observation.side}|${observation.branchId}`,
+          observation,
+        ]),
+      ).values(),
+    ];
+    const winner = "winner" in game.result ? game.result.winner : undefined;
+    const gameObservations = unique.map((observation) => ({
+      ...observation,
+      outcome:
+        winner === undefined
+          ? ("draw" as const)
+          : winner === observation.side
+            ? ("win" as const)
+            : ("loss" as const),
+    }));
+    const outcomeId = JSON.stringify([
+      game.startingSfen,
+      game.moves.map((move) => move.usi),
+      game.result,
+    ]);
+    setLearningState((current) =>
+      recordLearningGame(current, outcomeId, gameObservations),
+    );
+  }, [game.moves, game.result, game.startingSfen]);
+
   const runSearch = useCallback(
     async (
       current: ShogiGameState,
       style: StrategyId,
       moveTimeMs = level.moveTimeMs,
+      trackLearning = true,
     ): Promise<SearchResult> => {
       const client = engineRef.current;
       if (!client) throw new Error("エンジンを起動中です");
@@ -304,20 +414,30 @@ export function App() {
       }
 
       if (style !== "bogyoku") {
-        const candidates = openingCandidates(
+        const side = parseSfen("standard", current.sfen, true).unwrap().turn;
+        const candidates = openingCandidateDetails(
           style,
           current.sfen,
           current.moves.map((move) => move.usi),
         );
         setStrategyDiagnostics({ state: "DISABLED", ranked: [], rejected: [] });
         if (candidates.length === 0) return await client.search(baseRequest);
+        const chosen = chooseWeightedOpeningCandidate(candidates, (candidate) =>
+          learningBranchMultiplier(
+            learningState,
+            style,
+            side,
+            candidate.branchId,
+          ),
+        );
+        if (!chosen) return await client.search(baseRequest);
         const probe = await client.search({
           ...baseRequest,
           moveTimeMs: Math.max(180, Math.floor(moveTimeMs * 0.45)),
         });
         const result = await client.search({
           ...baseRequest,
-          searchMoves: candidates,
+          searchMoves: [chosen.usi],
         });
         const baseline = probe.variations[0];
         const planned = result.variations[0];
@@ -328,6 +448,14 @@ export function App() {
               planned?.scoreCp === undefined ||
               planned.scoreCp >=
                 baseline.scoreCp - surpriseLossLimitCp(bogyokuIntensity);
+        if (withinSafetyLimit && trackLearning) {
+          learningObservationsRef.current.push({
+            strategy: style,
+            side,
+            branchId: chosen.branchId,
+            openingEvalCp: planned?.scoreCp,
+          });
+        }
         return withinSafetyLimit ? result : probe;
       }
 
@@ -424,14 +552,32 @@ export function App() {
           (item) => `${item.variation.pv[0] ?? "-"}: ${item.reason}`,
         ),
       });
-      return chooseBogyokuResult(
+      const chosen = chooseBogyokuResult(
         result,
         finalSafety.accepted,
         finalRanked,
         plan.candidates,
       );
+      if (trackLearning && chosen.bestmove !== "resign" && chosen.bestmove !== "win") {
+        const chosenVariation = chosen.variations.find(
+          (variation) => variation.pv[0] === chosen.bestmove,
+        );
+        learningObservationsRef.current.push({
+          strategy: "bogyoku",
+          side: plan.side,
+          branchId: `bogyoku:${rangingRookSides[plan.side] ? "ranging-" : ""}${strategyState.toLowerCase()}`,
+          openingEvalCp: chosenVariation?.scoreCp ?? chosen.variations[0]?.scoreCp,
+        });
+      }
+      return chosen;
     },
-    [bogyokuIntensity, level.moveTimeMs, profile, rangingRookSides],
+    [
+      bogyokuIntensity,
+      learningState,
+      level.moveTimeMs,
+      profile,
+      rangingRookSides,
+    ],
   );
 
   const synchronizeAiTurn = useCallback(() => {
@@ -462,14 +608,16 @@ export function App() {
       .then((result) => {
         if (searchGeneration.current !== generation) return;
         setVariations(result.variations);
-        if (result.bestmove === "resign" || result.bestmove === "win") {
-          gameAudio.playFinish();
+        if (result.bestmove === "resign") {
+          gameDispatch({ type: "resigned", loser: position.turn });
           dispatch({ type: "game-finished" });
-          setEngineMessage(
-            result.bestmove === "resign"
-              ? "AIが投了しました"
-              : "AIが入玉宣言しました",
-          );
+          setEngineMessage("AIが投了しました");
+          return;
+        }
+        if (result.bestmove === "win") {
+          gameDispatch({ type: "declared", winner: position.turn });
+          dispatch({ type: "game-finished" });
+          setEngineMessage("AIが入玉宣言しました");
           return;
         }
         gameDispatch({ type: "usi-played", usi: result.bestmove });
@@ -518,6 +666,7 @@ export function App() {
       setRangingRookSides(rollRangingRookSides());
       setResolvedAiStyle(null);
       setResolvedSenteAiStyle(null);
+      learningObservationsRef.current = [];
       setStrategyDiagnostics({ state: "PREPARE", ranked: [], rejected: [] });
       void indexedDbGameRepository.clear();
     },
@@ -534,6 +683,7 @@ export function App() {
     void gameAudio.unlock().then(() => {
       if (state.status !== "paused") gameAudio.playStart();
     });
+    let nextHumanSide = resolvedHumanSide;
     if (state.status !== "paused" && state.mode === "human-vs-ai") {
       const side =
         humanSideChoice === "random"
@@ -541,18 +691,33 @@ export function App() {
             ? "sente"
             : "gote"
           : humanSideChoice;
+      nextHumanSide = side;
       setResolvedHumanSide(side);
       setBoardFlipped(side === "gote");
     }
     if (state.status !== "paused") {
+      const configuredAiSide: LearningSide =
+        state.mode === "human-vs-ai"
+          ? nextHumanSide === "sente"
+            ? "gote"
+            : "sente"
+          : "gote";
       setResolvedAiStyle(
-        resolveConfiguredStrategy(aiStrategyMode, aiStyle, bogyokuIntensity),
+        resolveConfiguredStrategy(
+          aiStrategyMode,
+          aiStyle,
+          bogyokuIntensity,
+          configuredAiSide,
+          learningState,
+        ),
       );
       setResolvedSenteAiStyle(
         resolveConfiguredStrategy(
           senteAiStrategyMode,
           senteAiStyle,
           bogyokuIntensity,
+          "sente",
+          learningState,
         ),
       );
     }
@@ -585,10 +750,22 @@ export function App() {
     setGoteLevelId(previousLevel);
     resetGame();
     setResolvedSenteAiStyle(
-      resolveConfiguredStrategy(aiStrategyMode, aiStyle, bogyokuIntensity),
+      resolveConfiguredStrategy(
+        aiStrategyMode,
+        aiStyle,
+        bogyokuIntensity,
+        "sente",
+        learningState,
+      ),
     );
     setResolvedAiStyle(
-      resolveConfiguredStrategy(previousMode, previousStyle, bogyokuIntensity),
+      resolveConfiguredStrategy(
+        previousMode,
+        previousStyle,
+        bogyokuIntensity,
+        "gote",
+        learningState,
+      ),
     );
     queueMicrotask(() => dispatch({ type: "game-started" }));
   };
@@ -596,7 +773,12 @@ export function App() {
   const analyze = async () => {
     dispatch({ type: "engine-thinking" });
     try {
-      const result = await runSearch(game, effectiveAiStyle);
+      const result = await runSearch(
+        game,
+        effectiveAiStyle,
+        level.moveTimeMs,
+        false,
+      );
       setVariations(result.variations);
       setEngineMessage(`推奨手 ${result.bestmove}`);
       dispatch({ type: "engine-ready" });
@@ -629,6 +811,46 @@ export function App() {
     setResolvedSenteAiStyle(null);
     if (mode === "specified" && senteAiStyle === "normal")
       setSenteAiStyle("bogyoku");
+  };
+
+  const toggleLearning = (enabled: boolean) => {
+    setLearningState((current) => setLearningEnabled(current, enabled));
+  };
+
+  const exportLearning = () => {
+    const blob = new Blob([JSON.stringify(learningState, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `bogyoku-learning-${new Date().toISOString().slice(0, 10)}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importLearningFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    try {
+      if (!file) return;
+      const imported = parseLearningState(await file.text());
+      if (!imported) throw new Error("unsupported learning data");
+      setLearningState(imported);
+    } catch {
+      window.alert(
+        "学習データを読み込めませんでした。対応するJSONを選んでください。",
+      );
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const resetLearning = () => {
+    if (!window.confirm("この端末の奇襲学習データを消去しますか？")) return;
+    const initial = createInitialLearningState();
+    learningObservationsRef.current = [];
+    setLearningState(initial);
+    void learningRepository.clear().then(() => learningRepository.save(initial));
   };
 
   return (
@@ -892,6 +1114,55 @@ export function App() {
               />
             </label>
           </div>
+          <details className="learning-panel">
+            <summary>
+              <span>端末内学習</span>
+              <strong>{learningState.learnedGames}局</strong>
+            </summary>
+            <div className="learning-panel-body">
+              <label className="learning-toggle">
+                <input
+                  checked={learningState.enabled}
+                  onChange={(event) => toggleLearning(event.target.checked)}
+                  type="checkbox"
+                />
+                奇襲定跡の選択を対局結果から調整
+              </label>
+              <div className="learning-actions">
+                <button
+                  className="secondary-button"
+                  onClick={exportLearning}
+                  type="button"
+                >
+                  JSON保存
+                </button>
+                <button
+                  className="secondary-button"
+                  onClick={() => learningImportRef.current?.click()}
+                  type="button"
+                >
+                  JSON読込
+                </button>
+                <button
+                  className="secondary-button"
+                  onClick={resetLearning}
+                  type="button"
+                >
+                  学習リセット
+                </button>
+              </div>
+              <input
+                ref={learningImportRef}
+                accept="application/json"
+                hidden
+                onChange={importLearningFile}
+                type="file"
+              />
+              <p>
+                学習データはこの端末内だけに保存され、棋譜や局面は外部送信しません。
+              </p>
+            </div>
+          </details>
           <div className="control-row">
             <button
               className="primary-button"

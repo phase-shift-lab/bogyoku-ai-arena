@@ -17,6 +17,7 @@ export interface MoveRecord {
 
 export type GameResult =
   | { readonly kind: "checkmate"; readonly winner: "sente" | "gote" }
+  | { readonly kind: "declaration"; readonly winner: "sente" | "gote" }
   | {
       readonly kind: "resignation";
       readonly winner: "sente" | "gote";
@@ -48,6 +49,7 @@ export type ShogiGameAction =
   | { readonly type: "kif-imported"; readonly kif: string }
   | { readonly type: "usi-played"; readonly usi: string }
   | { readonly type: "resigned"; readonly loser: "sente" | "gote" }
+  | { readonly type: "declared"; readonly winner: "sente" | "gote" }
   | { readonly type: "state-restored"; readonly state: ShogiGameState }
   | { readonly type: "reset" };
 
@@ -67,6 +69,10 @@ function messageFor(state: ShogiGameState) {
     const loser = state.result.loser === "sente" ? "先手" : "後手";
     const winner = state.result.winner === "sente" ? "先手" : "後手";
     return `${state.moves.length}手まで、${loser}の投了（${winner}の勝ち）`;
+  }
+  if (state.result?.kind === "declaration") {
+    const winner = state.result.winner === "sente" ? "先手" : "後手";
+    return `${winner}の勝ち（入玉宣言）`;
   }
   if (state.result?.reason === "repetition") return "千日手（同一局面4回）";
   if (state.result?.reason === "stalemate") return "引き分け";
@@ -290,6 +296,18 @@ export function shogiGameReducer(
         message: "",
       };
       return { ...resigned, message: messageFor(resigned) };
+    }
+    case "declared": {
+      if (state.result) return state;
+      const declared = {
+        ...state,
+        selection: undefined,
+        legalDestinations: [],
+        pendingPromotion: undefined,
+        result: { kind: "declaration", winner: action.winner } as const,
+        message: "",
+      };
+      return { ...declared, message: messageFor(declared) };
     }
     case "state-restored":
       return action.state;

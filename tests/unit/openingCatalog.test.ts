@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createInitialGameState, playUsi } from "../../src/game/shogiGame";
 import {
   chooseRandomSurpriseStrategy,
+  openingCandidateDetails,
   openingGuides,
   openingCandidates,
   strategyOptions,
@@ -68,9 +69,19 @@ describe("openingCandidates", () => {
     expect(Object.keys(openingGuides)).toHaveLength(14);
     for (const guide of Object.values(openingGuides)) {
       expect(guide.idealForm.length).toBeGreaterThan(8);
-      expect(guide.lines.length).toBeGreaterThan(0);
+      expect(guide.lines.length).toBeGreaterThanOrEqual(3);
       expect(guide.lines.every((line) => line.length > 0)).toBe(true);
     }
+  });
+
+  it("provides weighted branch metadata for adaptive selection", () => {
+    const game = createInitialGameState();
+    const candidates = openingCandidateDetails("new-oni-koroshi", game.sfen, []);
+
+    expect(candidates.length).toBeGreaterThan(0);
+    expect(candidates.every((candidate) => candidate.branchId.length > 0)).toBe(true);
+    expect(candidates.every((candidate) => candidate.baseWeight > 0)).toBe(true);
+    expect(new Set(candidates.map((candidate) => candidate.branchId)).size).toBeGreaterThan(1);
   });
 
   it("chooses only surprise strategies in auto mode", () => {

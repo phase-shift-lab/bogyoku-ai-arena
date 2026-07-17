@@ -29,6 +29,12 @@ export interface OpeningGuide {
   readonly lines: readonly (readonly string[])[];
 }
 
+export interface OpeningCandidate {
+  readonly usi: string;
+  readonly branchId: string;
+  readonly baseWeight: number;
+}
+
 export interface StrategyOption {
   readonly id: StrategyId;
   readonly category: "看板" | "定番奇襲" | "マイナー" | "通常";
@@ -138,13 +144,18 @@ export const surpriseStrategyOptions = strategyOptions.filter(
 export const openingGuides: Readonly<Record<GuidedStrategyId, OpeningGuide>> = {
   "oni-koroshi": {
     idealForm: "桂を6五へ跳ね、7筋へ飛車を回して速攻する形",
-    lines: [["7g7f", "8i7g", "7g6e", "2h7h", "7h7f"]],
+    lines: [
+      ["7g7f", "8i7g", "7g6e", "2h7h", "7h7f"],
+      ["7g7f", "8i7g", "2h7h", "7g6e", "7h7f"],
+      ["7g7f", "8i7g", "6i5h", "7g6e", "2h7h"],
+    ],
   },
   "new-oni-koroshi": {
     idealForm: "金を5八へ添え、桂を6五へ跳ねて7筋から攻める形",
     lines: [
       ["7g7f", "8i7g", "6i5h", "7g6e", "2h7h"],
       ["7g7f", "6i5h", "8i7g", "7g6e", "2h7h"],
+      ["7g7f", "8i7g", "6i5h", "2h7h", "7g6e"],
     ],
   },
   "haya-ishida": {
@@ -152,38 +163,64 @@ export const openingGuides: Readonly<Record<GuidedStrategyId, OpeningGuide>> = {
     lines: [
       ["7g7f", "7f7e", "2h7h", "5i4h", "7h7f"],
       ["7g7f", "2h7h", "7f7e", "5i4h", "7h7f"],
+      ["7g7f", "7f7e", "5i4h", "2h7h", "7h7f"],
     ],
   },
   "suji-chigai-kaku": {
     idealForm: "角交換後に4五へ角を打ち、歩得と両取りを狙う形",
-    lines: [["7g7f", "8h2b+", "B*4e"]],
+    lines: [
+      ["7g7f", "8h2b+", "B*4e"],
+      ["7g7f", "8h2b+", "B*4e", "2g2f"],
+      ["7g7f", "8h2b+", "B*5d", "2g2f"],
+    ],
   },
   pacman: {
     idealForm: "中央の歩を囮にし、相手の取り込みへ飛車で反撃する形",
-    lines: [["6g6f", "2h6h", "6h6f"]],
+    lines: [
+      ["6g6f", "2h6h", "6h6f"],
+      ["6g6f", "7g7f", "2h6h", "6h6f"],
+      ["6g6f", "5i4h", "2h6h", "6h6f"],
+    ],
   },
   ureshino: {
     idealForm: "角道を閉じたまま銀を7七・6六へ進め、引き角と飛車先で攻める形",
-    lines: [["7i6h", "6h7g", "8h7i", "7g6f", "2g2f"]],
+    lines: [
+      ["7i6h", "6h7g", "8h7i", "7g6f", "2g2f"],
+      ["7i6h", "6h7g", "7g6f", "8h7i", "2g2f"],
+      ["7i6h", "6h7g", "2g2f", "8h7i", "7g6f"],
+    ],
   },
   "edge-bishop-nakabisha": {
     idealForm: "9七角と5八飛を組み合わせ、中央と遠い対角線を攻める形",
     lines: [
       ["5g5f", "9g9f", "2h5h", "8h9g", "5f5e"],
       ["9g9f", "8h9g", "5g5f", "2h5h", "5f5e"],
+      ["5g5f", "2h5h", "9g9f", "8h9g", "5f5e"],
     ],
   },
   "bishop-head-pawn": {
     idealForm: "8筋の歩を早く進め、角頭を起点に主導権を奪う形",
-    lines: [["8g8f", "8f8e"]],
+    lines: [
+      ["8g8f", "8f8e", "7g7f"],
+      ["8g8f", "7g7f", "8f8e"],
+      ["8g8f", "6i7h", "8f8e"],
+    ],
   },
   kintoun: {
     idealForm: "角を7七へ上げて玉を8八へ運び、右辺の金銀を低く連結する形",
-    lines: [["7g7f", "8h7g", "5i6h", "6h7h", "7h8h", "6i7h", "7i6h"]],
+    lines: [
+      ["7g7f", "8h7g", "5i6h", "6h7h", "7h8h", "6i7h", "7i6h"],
+      ["7g7f", "5i6h", "8h7g", "6h7h", "7h8h", "6i7h", "7i6h"],
+      ["7g7f", "8h7g", "6i7h", "5i6h", "6h7h", "7h8h", "7i6h"],
+    ],
   },
   "ponpon-kei": {
     idealForm: "3筋の歩と桂を連動させ、桂を4五へ早跳ねする形",
-    lines: [["7g7f", "2g2f", "3g3f", "2i3g", "3g4e"]],
+    lines: [
+      ["7g7f", "2g2f", "3g3f", "2i3g", "3g4e"],
+      ["7g7f", "3g3f", "2i3g", "2g2f", "3g4e"],
+      ["2g2f", "7g7f", "3g3f", "2i3g", "3g4e"],
+    ],
   },
   duck: {
     idealForm: "浮き飛車と端角を構え、玉を中央に置いて金銀を低く連結する形",
@@ -200,19 +237,55 @@ export const openingGuides: Readonly<Record<GuidedStrategyId, OpeningGuide>> = {
         "6i7i",
         "4i3i",
       ],
+      [
+        "9g9f",
+        "8h9g",
+        "2g2f",
+        "2f2e",
+        "2h2f",
+        "5i5h",
+        "7i6h",
+        "3i4h",
+        "6i7i",
+        "4i3i",
+      ],
+      [
+        "2g2f",
+        "2f2e",
+        "2h2f",
+        "5i5h",
+        "9g9f",
+        "8h9g",
+        "7i6h",
+        "3i4h",
+        "6i7i",
+        "4i3i",
+      ],
     ],
   },
   "kusarigama-silver": {
     idealForm: "銀を飛車先から3六・4五へ繰り出し、鎖鎌のように圧力を掛ける形",
-    lines: [["2g2f", "3i3h", "3h2g", "2g3f", "3f4e"]],
+    lines: [
+      ["2g2f", "3i3h", "3h2g", "2g3f", "3f4e"],
+      ["3i3h", "2g2f", "3h2g", "2g3f", "3f4e"],
+      ["2g2f", "3i3h", "7g7f", "3h2g", "2g3f", "3f4e"],
+    ],
   },
   "first-file-rook": {
     idealForm: "1筋の歩を伸ばして飛車を1八へ振り、端へ戦力を集中する形",
-    lines: [["1g1f", "2h1h", "1f1e", "3i4h", "4h3g"]],
+    lines: [
+      ["1g1f", "2h1h", "1f1e", "3i4h", "4h3g"],
+      ["1g1f", "1f1e", "2h1h", "3i4h", "4h3g"],
+      ["1g1f", "2h1h", "3i4h", "1f1e", "4h3g"],
+    ],
   },
   "primitive-climbing-silver": {
     idealForm: "飛車先の歩・銀・飛車を一直線に並べ、銀を1五方面へ進める形",
-    lines: [["2g2f", "3i3h", "2f2e", "3h2g", "2g2f", "2f1e"]],
+    lines: [
+      ["2g2f", "3i3h", "2f2e", "3h2g", "2g2f", "2f1e"],
+      ["2g2f", "2f2e", "3i3h", "3h2g", "2g2f", "2f1e"],
+      ["3i3h", "2g2f", "3h2g", "2f2e", "2g2f", "2f1e"],
+    ],
   },
 };
 
@@ -235,16 +308,18 @@ export function strategyOption(strategy: StrategyId) {
 export function chooseRandomSurpriseStrategy(
   intensity: number,
   random: () => number = Math.random,
+  multiplierForStrategy: (strategy: SurpriseStrategyId) => number = () => 1,
 ): SurpriseStrategyId {
   const normalized = Math.max(0, Math.min(100, intensity)) / 100;
   const weighted = surpriseStrategyOptions.map((option) => ({
     id: option.id,
     weight:
-      option.category === "マイナー"
+      (option.category === "マイナー"
         ? 0.3 + normalized * 1.4
         : option.category === "看板"
           ? 1.1 + normalized * 0.8
-          : 1,
+          : 1) *
+      Math.max(0.72, Math.min(1.28, multiplierForStrategy(option.id))),
   }));
   const total = weighted.reduce((sum, option) => sum + option.weight, 0);
   let cursor = Math.max(0, Math.min(0.999999999, random())) * total;
@@ -260,6 +335,14 @@ export function openingCandidates(
   sfen: string,
   history: readonly string[],
 ): readonly string[] {
+  return [...new Set(openingCandidateDetails(strategy, sfen, history).map(({ usi }) => usi))];
+}
+
+export function openingCandidateDetails(
+  strategy: StrategyId,
+  sfen: string,
+  history: readonly string[],
+): readonly OpeningCandidate[] {
   if (strategy === "normal" || strategy === "bogyoku") return [];
   const guide = openingGuides[strategy];
   const position = parseSfen("standard", sfen, true).unwrap();
@@ -267,9 +350,9 @@ export function openingCandidates(
     position.turn === "sente" ? index % 2 === 0 : index % 2 === 1,
   );
   if (ownHistory.length > MAX_GUIDED_OWN_MOVES) return [];
-  const candidates = new Set<string>();
+  const candidates: OpeningCandidate[] = [];
 
-  for (const line of guide.lines) {
+  for (const [lineIndex, line] of guide.lines.entries()) {
     const sideLine = position.turn === "sente" ? line : line.map(mirrorUsi);
     let progress = 0;
     for (const move of ownHistory) {
@@ -281,10 +364,14 @@ export function openingCandidates(
       if (!candidate) continue;
       const move = parseUsi(candidate);
       if (!move || !position.isLegal(move)) continue;
-      candidates.add(candidate);
+      candidates.push({
+        usi: candidate,
+        branchId: `${strategy}:line-${lineIndex + 1}`,
+        baseWeight: Math.max(0.75, 1 - lineIndex * 0.08),
+      });
       break;
     }
   }
 
-  return [...candidates];
+  return candidates;
 }

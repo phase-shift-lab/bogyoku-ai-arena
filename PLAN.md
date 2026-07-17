@@ -72,3 +72,12 @@
 - [x] add a basic sequence and ideal formation for all fourteen non-Bogyoku surprises
 - [x] resume from a legal setup move after deviations, with side-symmetric mirroring
 - [x] preserve legality checks, evaluation limits, and unrestricted-engine fallback
+
+## Phase 10 — Adaptive surprise opening policy
+
+- [x] expand every surprise strategy to several side-symmetric opening branches and ideal routes
+- [x] select branches with bounded result and opening-evaluation feedback
+- [x] persist versioned learning data locally in IndexedDB without external transmission
+- [x] provide compact enable, reset, JSON export, and JSON import controls
+- [x] keep engine legality and tactical-safety fallback authoritative
+- [x] publish and verify the updated GitHub Pages URL
