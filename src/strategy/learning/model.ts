@@ -38,11 +38,7 @@ function clamp(value: number, lower: number, upper: number) {
   return Math.max(lower, Math.min(upper, value));
 }
 
-function recordKey(
-  strategy: StrategyId,
-  side: LearningSide,
-  branchId: string,
-) {
+function recordKey(strategy: StrategyId, side: LearningSide, branchId: string) {
   return `${strategy}|${side}|${branchId}`;
 }
 
@@ -108,10 +104,7 @@ export function recordLearningGame(
     ...state,
     learnedGames: state.learnedGames + 1,
     records,
-    processedOutcomeIds: [
-      ...state.processedOutcomeIds,
-      outcomeId,
-    ].slice(-256),
+    processedOutcomeIds: [...state.processedOutcomeIds, outcomeId].slice(-256),
   };
 }
 

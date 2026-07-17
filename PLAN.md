@@ -81,3 +81,12 @@
 - [x] provide compact enable, reset, JSON export, and JSON import controls
 - [x] keep engine legality and tactical-safety fallback authoritative
 - [x] publish and verify the updated GitHub Pages URL
+
+## Phase 11 — Anonymous cross-device shared learning
+
+- [x] define a strict anonymous event DTO that excludes games, positions, moves, evaluations, PVs, and device identifiers
+- [x] add an explicit opt-in UI and apply only bounded aggregate weights to surprise strategy and branch selection
+- [x] implement a Cloudflare Worker + D1 aggregate API with origin checks, input limits, deduplication, retention, minimum sample size, and fail-closed rate limiting
+- [x] keep local learning and play operational when the API is unconfigured, unavailable, invalid, or quota-limited
+- [x] cover DTO sanitization, aggregate validation, repository fallback, and Worker domain behavior with unit tests
+- [x] create the production D1 database, verify the account's rate-limiter availability, deploy the Worker, and set the production API URL

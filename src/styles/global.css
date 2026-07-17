@@ -505,6 +505,39 @@ a:focus-visible {
   line-height: 1.5;
 }
 
+.shared-learning-section {
+  display: grid;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(191 142 60 / 18%);
+}
+
+.learning-toggle input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.shared-learning-status {
+  justify-self: start;
+  padding: 3px 7px;
+  border: 1px solid rgb(191 142 60 / 24%);
+  border-radius: 999px;
+  color: #bda987;
+  font-size: 0.62rem;
+  line-height: 1.3;
+}
+
+.shared-learning-status.status-ready,
+.shared-learning-status.status-sent {
+  border-color: rgb(101 179 104 / 35%);
+  color: #8fda92;
+}
+
+.shared-learning-status.status-loading,
+.shared-learning-status.status-sending {
+  color: var(--gold);
+}
+
 .game-panel {
   min-width: 0;
   padding: clamp(14px, 2vw, 24px);

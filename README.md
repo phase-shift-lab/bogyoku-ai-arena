@@ -22,7 +22,9 @@ npm run build
 npm run test:e2e
 ```
 
-The application keeps games, positions, and analysis in the browser. It does not send them to an external API. Threaded WASM is selected when cross-origin isolation is available; otherwise the app falls back to the single-thread build.
+The application keeps games, positions, moves, evaluations, analysis, and device identifiers in the browser and never sends them to an external API. Optional anonymous shared learning is off by default and sends only the strategy, branch ID, AI side, outcome, and a random event ID. An unconfigured, unavailable, or quota-limited API never blocks play or local learning. See [worker/README.md](worker/README.md) for the Worker/D1 contract and deployment controls.
+
+Set `VITE_SHARED_LEARNING_API_URL` in `.env.local` only when a verified shared-learning API is available. Threaded WASM is selected when cross-origin isolation is available; otherwise the app falls back to the single-thread build.
 
 See [README_JA.md](README_JA.md) for Japanese documentation, [STATUS.md](STATUS.md) for verified status, and [ENGINE_SOURCE.md](ENGINE_SOURCE.md) for reproducible engine provenance.
 

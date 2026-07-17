@@ -335,7 +335,11 @@ export function openingCandidates(
   sfen: string,
   history: readonly string[],
 ): readonly string[] {
-  return [...new Set(openingCandidateDetails(strategy, sfen, history).map(({ usi }) => usi))];
+  return [
+    ...new Set(
+      openingCandidateDetails(strategy, sfen, history).map(({ usi }) => usi),
+    ),
+  ];
 }
 
 export function openingCandidateDetails(

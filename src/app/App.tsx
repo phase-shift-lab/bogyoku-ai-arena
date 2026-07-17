@@ -69,6 +69,13 @@ import {
   type LearningState,
 } from "../strategy/learning/model";
 import { learningRepository } from "../strategy/learning/repository";
+import {
+  createSharedLearningEvent,
+  sharedLearningBranchMultiplier,
+  sharedLearningStrategyMultiplier,
+  type SharedLearningAggregate,
+} from "../strategy/learning/shared";
+import { sharedLearningRepository } from "../strategy/learning/sharedRepository";
 import { appReducer, initialAppState } from "./appReducer";
 import { scheduleAutoReset } from "./autoReset";
 
@@ -96,6 +103,38 @@ const statusLabels = {
   error: "エラー",
 } as const;
 
+const sharedLearningConsentKey = "bogyoku-ai-arena:shared-learning-consent";
+
+type SharedLearningStatus =
+  | "disabled"
+  | "unconfigured"
+  | "loading"
+  | "ready"
+  | "sending"
+  | "sent"
+  | "unavailable";
+
+const sharedLearningStatusLabels: Record<SharedLearningStatus, string> = {
+  disabled: "共有学習OFF",
+  unconfigured: "共有API未設定（端末内のみ）",
+  loading: "共有データ読込中",
+  ready: "共有データ反映中",
+  sending: "匿名結果を送信中",
+  sent: "匿名結果を共有済み",
+  unavailable: "共有API利用不可（端末内のみ）",
+};
+
+function loadSharedLearningConsent(): boolean {
+  try {
+    return (
+      typeof localStorage !== "undefined" &&
+      localStorage.getItem(sharedLearningConsentKey) === "true"
+    );
+  } catch {
+    return false;
+  }
+}
+
 function isAbortError(error: unknown) {
   return error instanceof DOMException && error.name === "AbortError";
 }
@@ -119,6 +158,7 @@ function resolveConfiguredStrategy(
   intensity: number,
   side: LearningSide,
   learning: LearningState,
+  sharedLearning: SharedLearningAggregate | undefined,
 ): StrategyId {
   if (mode === "normal") return "normal";
   if (mode === "specified")
@@ -126,7 +166,9 @@ function resolveConfiguredStrategy(
   return chooseRandomSurpriseStrategy(
     intensity,
     Math.random,
-    (strategy) => learningStrategyMultiplier(learning, strategy, side),
+    (strategy) =>
+      learningStrategyMultiplier(learning, strategy, side) *
+      sharedLearningStrategyMultiplier(sharedLearning, strategy, side),
   );
 }
 
@@ -139,7 +181,8 @@ function chooseWeightedOpeningCandidate(
     candidate,
     weight: Math.max(0.05, candidate.baseWeight * weightFor(candidate)),
   }));
-  let cursor = Math.random() * weighted.reduce((sum, item) => sum + item.weight, 0);
+  let cursor =
+    Math.random() * weighted.reduce((sum, item) => sum + item.weight, 0);
   for (const item of weighted) {
     cursor -= item.weight;
     if (cursor <= 0) return item.candidate;
@@ -217,6 +260,23 @@ export function App() {
     createInitialLearningState,
   );
   const [learningLoaded, setLearningLoaded] = useState(false);
+  const [sharedLearningConsent, setSharedLearningConsent] = useState(
+    loadSharedLearningConsent,
+  );
+  const [storedSharedLearningAggregate, setStoredSharedLearningAggregate] =
+    useState<SharedLearningAggregate | undefined>();
+  const [sharedLearningRemoteStatus, setSharedLearningRemoteStatus] =
+    useState<SharedLearningStatus>("loading");
+  const sharedLearningAggregate =
+    sharedLearningConsent && sharedLearningRepository.configured
+      ? storedSharedLearningAggregate
+      : undefined;
+  const sharedLearningStatus: SharedLearningStatus =
+    !sharedLearningRepository.configured
+      ? "unconfigured"
+      : !sharedLearningConsent
+        ? "disabled"
+        : sharedLearningRemoteStatus;
   const engineRef = useRef<YaneuraOuClient | undefined>(undefined);
   const searchGeneration = useRef(0);
   const didInteractRef = useRef(false);
@@ -366,6 +426,37 @@ export function App() {
   }, [learningLoaded, learningState]);
 
   useEffect(() => {
+    try {
+      if (sharedLearningConsent) {
+        localStorage.setItem(sharedLearningConsentKey, "true");
+      } else {
+        localStorage.removeItem(sharedLearningConsentKey);
+      }
+    } catch {
+      // Storage failure must never block local play.
+    }
+
+    if (!sharedLearningConsent || !sharedLearningRepository.configured) return;
+
+    let alive = true;
+    void sharedLearningRepository
+      .loadAggregate()
+      .then((value) => {
+        if (!alive) return;
+        setStoredSharedLearningAggregate(value);
+        setSharedLearningRemoteStatus(value ? "ready" : "unavailable");
+      })
+      .catch(() => {
+        if (!alive) return;
+        setStoredSharedLearningAggregate(undefined);
+        setSharedLearningRemoteStatus("unavailable");
+      });
+    return () => {
+      alive = false;
+    };
+  }, [sharedLearningConsent]);
+
+  useEffect(() => {
     if (!game.result) return;
     const observations = learningObservationsRef.current;
     learningObservationsRef.current = [];
@@ -396,7 +487,30 @@ export function App() {
     setLearningState((current) =>
       recordLearningGame(current, outcomeId, gameObservations),
     );
-  }, [game.moves, game.result, game.startingSfen]);
+
+    if (
+      state.mode === "human-vs-ai" &&
+      sharedLearningConsent &&
+      sharedLearningRepository.configured
+    ) {
+      const event = createSharedLearningEvent(gameObservations);
+      if (event) {
+        setSharedLearningRemoteStatus("sending");
+        void sharedLearningRepository
+          .submitEvent(event)
+          .then((accepted) =>
+            setSharedLearningRemoteStatus(accepted ? "sent" : "unavailable"),
+          )
+          .catch(() => setSharedLearningRemoteStatus("unavailable"));
+      }
+    }
+  }, [
+    game.moves,
+    game.result,
+    game.startingSfen,
+    sharedLearningConsent,
+    state.mode,
+  ]);
 
   const runSearch = useCallback(
     async (
@@ -422,13 +536,21 @@ export function App() {
         );
         setStrategyDiagnostics({ state: "DISABLED", ranked: [], rejected: [] });
         if (candidates.length === 0) return await client.search(baseRequest);
-        const chosen = chooseWeightedOpeningCandidate(candidates, (candidate) =>
-          learningBranchMultiplier(
-            learningState,
-            style,
-            side,
-            candidate.branchId,
-          ),
+        const chosen = chooseWeightedOpeningCandidate(
+          candidates,
+          (candidate) =>
+            learningBranchMultiplier(
+              learningState,
+              style,
+              side,
+              candidate.branchId,
+            ) *
+            sharedLearningBranchMultiplier(
+              sharedLearningAggregate,
+              style,
+              side,
+              candidate.branchId,
+            ),
         );
         if (!chosen) return await client.search(baseRequest);
         const probe = await client.search({
@@ -558,7 +680,11 @@ export function App() {
         finalRanked,
         plan.candidates,
       );
-      if (trackLearning && chosen.bestmove !== "resign" && chosen.bestmove !== "win") {
+      if (
+        trackLearning &&
+        chosen.bestmove !== "resign" &&
+        chosen.bestmove !== "win"
+      ) {
         const chosenVariation = chosen.variations.find(
           (variation) => variation.pv[0] === chosen.bestmove,
         );
@@ -566,7 +692,8 @@ export function App() {
           strategy: "bogyoku",
           side: plan.side,
           branchId: `bogyoku:${rangingRookSides[plan.side] ? "ranging-" : ""}${strategyState.toLowerCase()}`,
-          openingEvalCp: chosenVariation?.scoreCp ?? chosen.variations[0]?.scoreCp,
+          openingEvalCp:
+            chosenVariation?.scoreCp ?? chosen.variations[0]?.scoreCp,
         });
       }
       return chosen;
@@ -577,6 +704,7 @@ export function App() {
       level.moveTimeMs,
       profile,
       rangingRookSides,
+      sharedLearningAggregate,
     ],
   );
 
@@ -709,6 +837,7 @@ export function App() {
           bogyokuIntensity,
           configuredAiSide,
           learningState,
+          sharedLearningAggregate,
         ),
       );
       setResolvedSenteAiStyle(
@@ -718,6 +847,7 @@ export function App() {
           bogyokuIntensity,
           "sente",
           learningState,
+          sharedLearningAggregate,
         ),
       );
     }
@@ -756,6 +886,7 @@ export function App() {
         bogyokuIntensity,
         "sente",
         learningState,
+        sharedLearningAggregate,
       ),
     );
     setResolvedAiStyle(
@@ -765,6 +896,7 @@ export function App() {
         bogyokuIntensity,
         "gote",
         learningState,
+        sharedLearningAggregate,
       ),
     );
     queueMicrotask(() => dispatch({ type: "game-started" }));
@@ -850,7 +982,9 @@ export function App() {
     const initial = createInitialLearningState();
     learningObservationsRef.current = [];
     setLearningState(initial);
-    void learningRepository.clear().then(() => learningRepository.save(initial));
+    void learningRepository
+      .clear()
+      .then(() => learningRepository.save(initial));
   };
 
   return (
@@ -1116,7 +1250,7 @@ export function App() {
           </div>
           <details className="learning-panel">
             <summary>
-              <span>端末内学習</span>
+              <span>奇襲学習</span>
               <strong>{learningState.learnedGames}局</strong>
             </summary>
             <div className="learning-panel-body">
@@ -1158,9 +1292,35 @@ export function App() {
                 onChange={importLearningFile}
                 type="file"
               />
-              <p>
-                学習データはこの端末内だけに保存され、棋譜や局面は外部送信しません。
-              </p>
+              <p>端末内学習データはこの端末に保存されます。</p>
+              <div className="shared-learning-section">
+                <label className="learning-toggle">
+                  <input
+                    checked={
+                      sharedLearningConsent &&
+                      sharedLearningRepository.configured
+                    }
+                    disabled={!sharedLearningRepository.configured}
+                    onChange={(event) => {
+                      setSharedLearningConsent(event.target.checked);
+                      setStoredSharedLearningAggregate(undefined);
+                      if (event.target.checked) {
+                        setSharedLearningRemoteStatus("loading");
+                      }
+                    }}
+                    type="checkbox"
+                  />
+                  匿名の共有学習に参加
+                </label>
+                <output
+                  className={`shared-learning-status status-${sharedLearningStatus}`}
+                >
+                  {sharedLearningStatusLabels[sharedLearningStatus]}
+                </output>
+                <p>
+                  送信するのは戦法・分岐ID・AI手番・勝敗・ランダムなイベントIDだけです。棋譜・局面・指し手・評価値・端末識別子は送信しません。
+                </p>
+              </div>
             </div>
           </details>
           <div className="control-row">

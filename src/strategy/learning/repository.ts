@@ -1,7 +1,4 @@
-import {
-  parseLearningState,
-  type LearningState,
-} from "./model";
+import { parseLearningState, type LearningState } from "./model";
 
 const databaseName = "bogyoku-ai-learning";
 const storeName = "adaptive-policy";
@@ -40,8 +37,9 @@ async function transact<T>(
 
 export const learningRepository = {
   async load() {
-    const stored = await transact<LearningState | undefined>("readonly", (store) =>
-      store.get(stateKey),
+    const stored = await transact<LearningState | undefined>(
+      "readonly",
+      (store) => store.get(stateKey),
     );
     return stored ? parseLearningState(JSON.stringify(stored)) : undefined;
   },

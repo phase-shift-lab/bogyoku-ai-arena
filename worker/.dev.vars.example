@@ -1,0 +1,13 @@
+# Browser requests are accepted only from these exact origins.
+ALLOWED_ORIGINS="http://localhost:5173,https://phase-shift-lab.github.io"
+
+# Values below 30 are clamped to 30.
+MIN_AGGREGATE_GAMES="30"
+
+# Receipt digests are removed by the scheduled cleanup after this many days.
+# Values are clamped to 7..365 days.
+RECEIPT_RETENTION_DAYS="30"
+
+# Local development can run without a Rate Limiting binding. Production should
+# set this to true so a missing or failed binding closes POST with HTTP 503.
+REQUIRE_RATE_LIMITER="false"

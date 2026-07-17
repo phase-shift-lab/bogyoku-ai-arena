@@ -76,12 +76,22 @@ describe("openingCandidates", () => {
 
   it("provides weighted branch metadata for adaptive selection", () => {
     const game = createInitialGameState();
-    const candidates = openingCandidateDetails("new-oni-koroshi", game.sfen, []);
+    const candidates = openingCandidateDetails(
+      "new-oni-koroshi",
+      game.sfen,
+      [],
+    );
 
     expect(candidates.length).toBeGreaterThan(0);
-    expect(candidates.every((candidate) => candidate.branchId.length > 0)).toBe(true);
-    expect(candidates.every((candidate) => candidate.baseWeight > 0)).toBe(true);
-    expect(new Set(candidates.map((candidate) => candidate.branchId)).size).toBeGreaterThan(1);
+    expect(candidates.every((candidate) => candidate.branchId.length > 0)).toBe(
+      true,
+    );
+    expect(candidates.every((candidate) => candidate.baseWeight > 0)).toBe(
+      true,
+    );
+    expect(
+      new Set(candidates.map((candidate) => candidate.branchId)).size,
+    ).toBeGreaterThan(1);
   });
 
   it("chooses only surprise strategies in auto mode", () => {

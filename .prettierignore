@@ -8,3 +8,6 @@ output
 public/engine
 public/models
 src/engine/runtime
+worker/node_modules
+worker/.npm-cache
+worker/.wrangler

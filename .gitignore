@@ -11,6 +11,7 @@ output/playwright/
 .env
 .env.*
 !.env.example
+worker/wrangler.jsonc
 .DS_Store
 Thumbs.db
 *.log
