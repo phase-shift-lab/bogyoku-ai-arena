@@ -85,27 +85,6 @@ test("shows only the supported game modes", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("imports local opening learning data", async ({ page }) => {
-  await page.locator(".learning-panel").click();
-  await page.locator('.learning-panel input[type="file"]').setInputFiles({
-    name: "bogyoku-learning.json",
-    mimeType: "application/json",
-    buffer: Buffer.from(
-      JSON.stringify({
-        version: 1,
-        enabled: true,
-        learnedGames: 7,
-        records: {},
-        processedOutcomeIds: [],
-      }),
-    ),
-  });
-
-  await expect(page.locator(".learning-panel summary strong")).toHaveText(
-    "7局",
-  );
-});
-
 test("selects the human side and a handicap preset", async ({ page }) => {
   await test.step("selects gote", async () => {
     await page.getByLabel("あなたの手番").selectOption("gote");

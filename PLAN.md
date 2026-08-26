@@ -73,20 +73,10 @@
 - [x] resume from a legal setup move after deviations, with side-symmetric mirroring
 - [x] preserve legality checks, evaluation limits, and unrestricted-engine fallback
 
-## Phase 10 — Adaptive surprise opening policy
+## Phase 10 — Adaptive surprise opening policy (廃止)
 
-- [x] expand every surprise strategy to several side-symmetric opening branches and ideal routes
-- [x] select branches with bounded result and opening-evaluation feedback
-- [x] persist versioned learning data locally in IndexedDB without external transmission
-- [x] provide compact enable, reset, JSON export, and JSON import controls
-- [x] keep engine legality and tactical-safety fallback authoritative
-- [x] publish and verify the updated GitHub Pages URL
+学習による戦法・分岐の適応は採用せず、固定カタログと既存の合法手・安全性・評価ロジックを使用する。
 
-## Phase 11 — Anonymous cross-device shared learning
+## Phase 11 — Anonymous cross-device shared learning (廃止)
 
-- [x] define a strict anonymous event DTO that excludes games, positions, moves, evaluations, PVs, and device identifiers
-- [x] add an explicit opt-in UI and apply only bounded aggregate weights to surprise strategy and branch selection
-- [x] implement a Cloudflare Worker + D1 aggregate API with origin checks, input limits, deduplication, retention, minimum sample size, and fail-closed rate limiting
-- [x] keep local learning and play operational when the API is unconfigured, unavailable, invalid, or quota-limited
-- [x] cover DTO sanitization, aggregate validation, repository fallback, and Worker domain behavior with unit tests
-- [x] create the production D1 database, verify the account's rate-limiter availability, deploy the Worker, and set the production API URL
+共有学習、外部API、専用サーバーは採用しない。棋譜・局面・指し手・評価値・解析結果はブラウザ内だけで扱う。

@@ -29,8 +29,6 @@ jobs:
       - run: npm test
       - name: Build for GitHub Pages
         run: npm run build
-        env:
-          VITE_SHARED_LEARNING_API_URL: ${{ vars.VITE_SHARED_LEARNING_API_URL }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
